@@ -2,8 +2,7 @@ if (!window.dash_clientside) {
   window.dash_clientside = {};
 }
 window.dash_clientside.clientside = {
-  make_draggable: function (is_open, id) {
-    if (is_open && id) {
+  make_draggable: function (id) {
       dragElement(document.getElementById(id));
 
       function dragElement(elem) {
@@ -42,7 +41,6 @@ window.dash_clientside.clientside = {
           document.onmousemove = null;
         }
       }
-    }
     return window.dash_clientside.no_update;
   },
 };

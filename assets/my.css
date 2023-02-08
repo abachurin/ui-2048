@@ -1,0 +1,148 @@
+@import 'bootstrap.css';
+
+/* General styles */
+
+:root {
+    --app-light-blue: #d2e6f9;
+}
+
+* {
+	font-family: Roboto, sans-serif !important;
+}
+
+.btn-close {
+    height: 0 !important;
+}
+
+.app-input-field {
+    position: absolute;
+    width: calc(100% - 2rem);
+    height: 2rem;
+    background: var(--bs-gray-100);
+    border-radius: 0.2rem;
+}
+
+.app-border, .app-btn {
+    border: 1px solid var(--bs-indigo);
+    border-radius: 0.5rem;
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2), 0 2px 8px 0 rgba(0, 0, 0, 0.15);
+}
+
+.app-modal-header, .app-modal-body, .app-modal-footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.app-cont {
+	position: absolute;
+    margin: 1rem;
+    padding: 1rem;
+	width: calc(100vw - 2rem);
+    height: calc(100vh - 2rem);
+}
+
+.app-btn {
+    line-height: 1.2rem;
+}
+
+.app-btn:hover {
+    line-height: 1.2rem;
+    font-size: 1.2rem;
+}
+
+/* Modal styles */
+.app-modal-header {
+    position: absolute;
+	height: 2rem;
+    width: 100%;
+    border-radius: 0.5rem 0.5rem 0 0;
+    background: var(--bs-gray-400);
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.app-modal-body {
+    position: absolute;
+    top: 2rem;
+	height: calc(100% - 5rem);
+    width: 100%;
+}
+
+.app-modal-footer {
+    position: absolute;
+    top: calc(100% - 3rem);
+    height: 2.9rem;
+    width: 100%;
+    background: var(--bs-gray-400);
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.app-btn-submit {
+    position: absolute;
+    left: 1rem;
+}
+
+/* Navigation bar */
+.app-nav-item {
+    line-height: 1.2rem;
+    font-size: max(0.8rem, min(1rem, 0.8vw));
+    white-space: pre;
+    color: var(--bs-black)
+}
+
+.app-nav-item:hover {
+    font-size: 1.2rem;
+    color: var(--bs-yellow);
+}
+
+.app-drop-new {
+    background: var(--app-light-blue);
+    padding-right: 1rem;
+    padding-left: 1rem;
+    margin-right: 3rem;
+}
+
+.app-odd-item {
+    color: #990099;
+}
+
+.app-btn-login {
+    margin-left: 5rem;
+}
+
+.app-r1 {
+    margin-left: 1rem;
+}
+
+.app-table-nav {
+    background: var(--app-light-blue) !important;
+}
+
+.dropdown-toggle::after {
+    color: var(--bs-black);
+}
+
+/* Login window */
+#login {
+	position: absolute;
+    height: 20rem;
+	width: 27rem;
+	left: calc(50% - 13.5rem);
+	top: 10rem;
+    background: var(--app-light-blue);
+    z-index: 100;
+}
+
+.login-name {
+    top: 1rem;
+}
+
+.login-pwd {
+    top: 3.5rem;
+}
+
+.login-msg {
+    position: absolute;
+    top: 6rem;
+    font-size: 0.8rem;
+}
