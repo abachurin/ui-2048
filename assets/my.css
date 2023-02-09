@@ -125,7 +125,7 @@
 /* Login window */
 #login {
 	position: absolute;
-    height: 20rem;
+    height: 16rem;
 	width: 27rem;
 	left: calc(50% - 13.5rem);
 	top: 10rem;
@@ -141,8 +141,23 @@
     top: 3.5rem;
 }
 
+.login-email {
+    top: 6rem;
+}
+
 .login-msg {
     position: absolute;
-    top: 6rem;
+    top: 11rem;
     font-size: 0.8rem;
+}
+
+/* Files management window*/
+#files {
+	position: absolute;
+	width: 27rem;
+    height: 20rem;
+	left: calc(50% - 13.5rem);
+	top: 15rem;
+    background: var(--bs-gray-100);
+    z-index: 100;
 }

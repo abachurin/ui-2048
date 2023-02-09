@@ -9,4 +9,4 @@ ENV PYTHONPATH /code
 
 EXPOSE 4000
 ENTRYPOINT ["python3"]
-CMD ["application.py"]
+CMD ["main.py"]

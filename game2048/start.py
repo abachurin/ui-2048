@@ -60,7 +60,7 @@ def api_request(kind, suffix, body):
         if response_message['status'] != 'ok':
             return {'status': Resp.BAD, 'msg': response_message['status']}
         else:
-            return {'status': Resp.GOOD, 'msg': response_message['msg']}
+            return {'status': Resp.GOOD, 'msg': response_message['content']}
     except requests.exceptions.ConnectionError:
         return {'status': Resp.NONE, 'msg': 'No connection to backend, contact Support'}
 
@@ -78,8 +78,28 @@ def temp_local_name(name):
     return f'temp{time_suffix()}.{ext}', ext
 
 
+def download_from_url(url: str):
+    name = url.split('/')[-1].split('?')[0]
+    r = requests.get(url, stream=True)
+    if r.ok:
+        with open(name, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024 * 8):
+                if chunk:
+                    f.write(chunk)
+                    f.flush()
+                    os.fsync(f.fileno())
+        to_send = dcc.send_file(name)
+        os.remove(name)
+        return {'status': Resp.GOOD, 'to_send': to_send}
+    else:
+        return {'status': f'Download failed: {r.status_code}, {r.text}'}
+
+
 navbar_logo = './assets/favicon.ico'
 navbar_title = 'Robot 2048'
+
+modals_draggable = ['login', 'files']
+modals_open_close = ['login', 'files']
 
 # Some necessary variables and useful functions
 mode_names = {
@@ -96,8 +116,6 @@ act_list = {
     'upload': 'Upload',
     'delete': 'Delete'
 }
-modals_draggable = ['login']
-modals_open_close = ['login']
 
 params_list = ['name', 'n', 'alpha', 'decay', 'decay_step', 'low_alpha_limit', 'Training episodes']
 params_dict = {
@@ -128,3 +146,8 @@ def general_alert(text, good=False):
         return NUP
     color = 'success' if good else 'warning'
     return [dbc.Alert(text, dismissable=True, fade=True, color=color, duration=5000)]
+
+
+def opt_list(values):
+    return [{'label': v, 'value': v} for v in values]
+

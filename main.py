@@ -157,11 +157,12 @@ app = DashProxy(__name__, suppress_callback_exceptions=True,
 
 app.layout = html.Div([
     dcc.Store(id='user_profile', storage_type='session'),
+    dcc.Download(id='download'),
     html.Div(id='alert'),
     dbc.NavbarSimple(
         children=[
-            dbc.Button('Manage Files', id='files_btn', className='app-btn', color='primary', disabled=True),
-            dbc.Button('Delete User', id='del_user_btn', className='app-btn app-r1', disabled=True, color='primary'),
+            dbc.Button('Manage Files', id='files_open', className='app-btn', color='primary', disabled=True),
+            dbc.Button('Delete User', id='del_user_open', className='app-btn app-r1', disabled=True, color='primary'),
             dcc.ConfirmDialog(id='confirm_delete',
                               message='Are you sure? All Agents assigned to this user will be deleted'),
             dbc.Button('Log in', id='login_open', className='app-btn app-r1', color='success'),
@@ -174,23 +175,38 @@ app.layout = html.Div([
         color='dark', dark=True, expand='sm', className='app-top-line'
     ),
     dbc.NavbarSimple(children=[
-        dbc.NavLink(mode_names[v], id=f'{v}_btn', disabled=True,
+        dbc.NavLink(mode_names[v], id=f'{v}_open', disabled=True,
                     className='app-nav-item' + (' app-odd-item' if i % 2 else ''))
         for i, v in enumerate(list(mode_names))
-        ], id='navbar', links_left=True, expand='xs', className='app-table-nav'),
+        ], id='navbar', links_left=True, expand='sm', className='app-table-nav'),
     html.Div([
         dbc.ModalHeader('registration', close_button=False, id='login_header', className='app-modal-header'),
         dbc.ModalBody(children=[
             dbc.Input(id='login_name', className='app-input-field login-name', type='text', placeholder='User'),
-            dbc.Input(id='login_pwd', className='app-input-field login-pwd', type='password', placeholder='Password'),
-            html.Div('* Contact Admin in case of registration problems', className='login-msg')
+            dbc.Input(id='login_pwd', className='app-input-field login-pwd', type='password', placeholder='Password')
         ], className='app-modal-body'),
         dbc.ModalFooter([
             dbc.Button('Submit', id='login_submit', className='app-btn app-btn-submit', n_clicks=0, color='success'),
             dbc.Button('New', id='login_new', className='app-btn app-r1', n_clicks=0, color='primary'),
             dbc.Button('Cancel', id='login_close', className='app-btn app-r1', n_clicks=0, color='secondary')
         ], className=f'app-modal-footer')
-    ], id='login', className='app-border', hidden=False)
+    ], id='login', className='app-border', hidden=False),
+    html.Div([
+        dbc.ModalHeader('manage files', close_button=False, id='files_header', className='app-modal-header'),
+        dbc.ModalBody(children=[
+            html.Br(),
+            html.Div('Agents/Games ?'),
+            dcc.Dropdown(id='files_kind', options=opt_list(['Agents', 'Games']), value='Agents', clearable=False),
+            html.Br(),
+            html.Div('Name:'),
+            dcc.Dropdown(id='files_name'),
+        ], className='app-modal-body'),
+        dbc.ModalFooter([
+            dbc.Button('Delete', id='files_delete', className='app-btn app-btn-submit', n_clicks=0, color='success'),
+            dbc.Button('Download', id='files_download', className='app-btn app-r1', n_clicks=0, color='primary'),
+            dbc.Button('Quit', id='files_close', className='app-btn app-r1', n_clicks=0, color='secondary')
+        ], className=f'app-modal-footer')
+    ], id='files', className='app-border', hidden=True)
 ], className='app-cont app-border')
 
 
@@ -221,7 +237,7 @@ def login_submit(n1, n2, n3, name, pwd, profile):
         raise PreventUpdate
     action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
     if action == 'delete':
-        name, pwd = profile['name'], profile['pwd']
+        name, pwd = profile['name'], 'x'
     if not name or not pwd:
         return NUP, general_alert('Name and Password should be filled'), NUP, NUP
     body = {
@@ -231,22 +247,28 @@ def login_submit(n1, n2, n3, name, pwd, profile):
     }
     resp = api_request('POST', 'user', body)
     if resp['status'] == Resp.GOOD:
-        return resp['msg'], NUP, '', ''
+        if action == 'delete':
+            return None, general_alert(resp['msg']['msg'], good=True), '', ''
+        profile = {**resp['msg']['profile'], 'name': name}
+        return profile, general_alert(resp['msg']['msg'], good=True), '', ''
     else:
         return NUP, general_alert(resp['msg']), NUP, NUP
 
 
 @app.callback(
-    [Output('login_open', 'children'), Output('alert', 'children'), Output('login', 'hidden')] +
-    [Output(f'{v}_btn', 'disabled') for v in mode_names],
-    Input('user_profile', 'data')
+    [Output('login_open', 'children'), Output('alert', 'children'), Output('login', 'hidden'),
+     Output('files_name', 'options')] +
+    [Output(f'{v}_open', 'disabled') for v in mode_list],
+    Input('user_profile', 'data'),
+    State('files_kind', 'value')
 )
-def display_name(data):
+def display_name(data, kind):
     if data:
         user = data['name']
-        return [user, general_alert(f'Welcome, {user}', good=True), True] + \
-               [False] * len(mode_names)
-    return ['Log in', NUP, False] + [True] * len(mode_names)
+        opts = opt_list(data[kind])
+        return [user, general_alert(f'Welcome, {user}', good=True), True, opts] + \
+               [False] * len(mode_list)
+    return ['Log in', NUP, False, []] + [True] * len(mode_list)
 
 
 @app.callback(
@@ -261,12 +283,62 @@ def login_quit(n):
 
 @app.callback(
     Output('confirm_delete', 'displayed'),
-    Input('delete_user_btn', 'n_clicks')
+    Input('del_user_open', 'n_clicks')
 )
 def display_confirm(n):
     if n:
         return True
     return False
+
+
+# Manage files
+@app.callback(
+    Output('files', 'hidden'),
+    Input('files_btn', 'n_clicks')
+)
+def manage_files(n):
+    if n:
+        return False
+    return True
+
+
+@app.callback(
+    Output('files_name', 'options'),
+    Input('files_kind', 'value'),
+    State('user_profile', 'data')
+)
+def files_options(kind, data):
+    if data:
+        return opt_list(data[kind])
+    return []
+
+
+@app.callback(
+    Output('download', 'data'), Output('alert', 'children'),
+    Input('files_download', 'n_clicks'), Input('files_delete', 'n_clicks'),
+    State('files_kind', 'value'), State('files_name', 'value')
+)
+def manage_files(n1, n2, kind, name):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
+    if kind is None or name is None:
+        return NUP, general_alert(f'Choose a file to {action}')
+    body = {
+        'kind': kind,
+        'name': name,
+        'action': action
+    }
+    resp = api_request('POST', 'file', body)
+    if resp['status'] == Resp.GOOD:
+        if action == 'delete':
+            return NUP, general_alert(resp['msg']['msg'], good=True)
+        dnl = download_from_url(resp['msg']['url'])
+        if dnl['status'] == Resp.GOOD:
+            return dnl['to_send'], NUP
+        return NUP, general_alert(dnl['status'])
+    return NUP, general_alert(resp['msg'])
 
 
 # refresh status, to keep parallel processes from closing down while the app is open in the browser,
