@@ -4,14 +4,25 @@
 
 :root {
     --app-light-blue: #d2e6f9;
+    --app-color-0: #d2e6f9;
+    --app-color-1: #ff5c33;
+    --app-color-2: #ff33cc;
+    --app-color-3: #00ff00;
+    --app-color-4: #cc00ff;
+    --app-color-5: #00ff99;
+    --app-color-6: #ff6666;
+    --app-color-7: #ffff00;
+    --app-color-8: #ff3300;
+    --app-color-9: #666699;
+    --app-color-10: #999900;
+    --app-color-11: #cc0000;
+    --app-color-12: #00ffff;
+    --app-color-13: #990000;
+    --app-color-15: #000066;
 }
 
 * {
 	font-family: Roboto, sans-serif !important;
-}
-
-.btn-close {
-    height: 0 !important;
 }
 
 .app-input-field {
@@ -22,7 +33,7 @@
     border-radius: 0.2rem;
 }
 
-.app-border, .app-btn {
+.app-border, .app-btn, .app-pane {
     border: 1px solid var(--bs-indigo);
     border-radius: 0.5rem;
 	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2), 0 2px 8px 0 rgba(0, 0, 0, 0.15);
@@ -41,6 +52,21 @@
     height: calc(100vh - 2rem);
 }
 
+.app-pane {
+    margin-top: 1rem;
+    min-width: 30rem;
+    height: 54rem;
+    padding: 1rem;
+}
+
+.app-pane-header {
+    width: 100%;
+    background: var(--bs-gray-700);
+    color: var(--bs-white);
+    text-align: center;
+    text-transform: uppercase;
+}
+
 .app-btn {
     line-height: 1.2rem;
 }
@@ -53,7 +79,7 @@
 /* Modal styles */
 .app-modal-header {
     position: absolute;
-	height: 2rem;
+	height: 3rem;
     width: 100%;
     border-radius: 0.5rem 0.5rem 0 0;
     background: var(--bs-gray-400);
@@ -63,8 +89,8 @@
 
 .app-modal-body {
     position: absolute;
-    top: 2rem;
-	height: calc(100% - 5rem);
+    top: 3rem;
+	height: calc(100% - 6rem);
     width: 100%;
 }
 
@@ -160,4 +186,145 @@
 	top: 15rem;
     background: var(--bs-gray-100);
     z-index: 100;
+}
+
+/* Guide */
+
+#guide {
+    top: 1rem;
+    background: var(--bs-gray-100);
+    z-index: 100;
+}
+
+.app-guide-body {
+    min-width: 30rem;
+}
+
+.app-guide_content {
+    white-space: pre-wrap;
+}
+
+/* Game pane */
+
+#instruction, #game_option {
+    position: absolute;
+    top: 7rem;
+    left: calc(50% - 12rem);
+    height: 15rem;
+    width: 24rem;
+    background: var(--bs-gray-100);
+    white-space: pre-wrap;
+    opacity: 0.9;
+    z-index: 100;
+}
+
+.inst-header {
+    background: var(--bs-gray-400);
+    color: var(--bs-black);
+    text-transform: uppercase;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.app-gauge-group {
+    position: absolute;
+    bottom: 0;
+    height: 19rem;
+    width: 100%;
+    text-align: center;
+}
+
+.app-speed-header {
+    bottom: 6rem;
+    text-align: center;
+}
+
+.app-speed-slider {
+    bottom: 3.4rem;
+}
+
+.app-button-line {
+    height: 3rem;
+    bottom: 0;
+}
+
+.app-speed-header, .app-speed-slider, .app-button-line, .app-restart-btn {
+    position: absolute;
+    width: 28rem;
+    left: calc(50% - 14rem);
+}
+
+.app-pause-btn {
+    position: absolute;
+    left: 0;
+}
+
+.app-resume-btn {
+    position: absolute;
+    right: 0;
+}
+
+.move-button {
+    position: absolute;
+    color: white;
+    font-size: 2.5rem;
+    width: 8rem;
+    height: 4rem;
+    padding: 0;
+}
+
+.move-button:hover {
+    opacity: 50%;
+}
+
+.move-left {
+    background: #ff00ff;
+    left: calc(50% - 14rem);
+    bottom: 10rem;
+}
+
+.move-up {
+    background: #0066ff;
+    left: calc(50% - 4rem);
+    bottom: 13rem;
+}
+
+.move-right {
+    background: #009900;
+    left: calc(50% + 6rem);
+    bottom: 10rem;
+}
+
+.move-down {
+    background: #5c0099;
+    left: calc(50% - 4rem);
+    bottom: 7rem;
+}
+
+.app-restart-btn {
+    position: absolute;
+    bottom: 1rem;
+    height: 3rem;
+}
+
+.app-game-header {
+    padding-top: 0.2rem;
+    text-align: center;
+    white-space: pre;
+    background: var(--bs-primary);
+    color: var(--bs-white);
+    font-size: 1.1rem;
+    height: 2rem;
+}
+
+.app-game-cell {
+    position: absolute;
+    width: 7rem;
+    height: 7rem;
+    padding-top: 2.3rem;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: black;
+    border: 1px solid var(--bs-white);
+    border-radius: 0.5rem;
 }

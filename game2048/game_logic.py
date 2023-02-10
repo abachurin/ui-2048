@@ -1,4 +1,6 @@
-from .start import *
+import numpy as np
+import pickle
+import random
 
 
 # basic evaluation methods - take best score, and move randomly

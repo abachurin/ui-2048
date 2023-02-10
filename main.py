@@ -3,6 +3,7 @@ from game2048.dash_utils import *
 dash_directory = os.path.dirname(os.path.realpath(__file__))
 with open(os.path.join(dash_directory, 'assets', 'user_guide.md'), 'r') as f:
     interface_description = f.read()
+
 project_description = {}
 for i in (1, 2, 3, 4):
     with open(os.path.join(dash_directory, 'assets', f'project_{i}.md'), 'r') as f:
@@ -30,7 +31,7 @@ app = DashProxy(__name__, suppress_callback_exceptions=True,
 #         dbc.ModalHeader([
 #             dbc.ButtonGroup([dbc.Button('User interface guide', id='guide_ui_button', color='info'),
 #                              dbc.Button('RL project description', id='guide_project_button')])]),
-#         dbc.ModalBody(id='guide_page_body')], id='guide_page', size='xl', centered=True, contentClassName='guide-page'),
+#         dbc.ModalBody(id='guide_page_body')], id='guide_page', c, contentClassName='guide-page'),
 #     dbc.Modal([
 #         while_loading('uploading', 25),
 #         dbc.ModalHeader('File Management'),
@@ -155,8 +156,14 @@ app = DashProxy(__name__, suppress_callback_exceptions=True,
 #     ])
 # ])
 
-app.layout = html.Div([
+app.layout = dbc.Container([
     dcc.Store(id='user_profile', storage_type='session'),
+    dcc.Store(id='current_game_mode', storage_type='session'),
+    dcc.Store(id='current_game', storage_type='session'),
+    dcc.Store(id='current_agent_mode', storage_type='session'),
+    dcc.Store(id='show_instruction', storage_type='session', data=1),
+    EventListener(id='keyboard'),
+    dcc.Interval(id='move_delay', n_intervals=0, disabled=True),
     dcc.Download(id='download'),
     html.Div(id='alert'),
     dbc.NavbarSimple(
@@ -172,13 +179,13 @@ app.layout = html.Div([
             dbc.Col(html.Img(src=navbar_logo, height='25rem')),
             dbc.Col(dbc.NavbarBrand(navbar_title, className='ms-2'))
         ], align='center', className='g-0'),
-        color='dark', dark=True, expand='sm', className='app-top-line'
+        color='dark', dark=True, className='app-top-line'
     ),
     dbc.NavbarSimple(children=[
         dbc.NavLink(mode_names[v], id=f'{v}_open', disabled=True,
                     className='app-nav-item' + (' app-odd-item' if i % 2 else ''))
         for i, v in enumerate(list(mode_names))
-        ], id='navbar', links_left=True, expand='sm', className='app-table-nav'),
+        ], id='navbar', links_left=True, className='app-table-nav'),
     html.Div([
         dbc.ModalHeader('registration', close_button=False, id='login_header', className='app-modal-header'),
         dbc.ModalBody(children=[
@@ -189,7 +196,7 @@ app.layout = html.Div([
             dbc.Button('Submit', id='login_submit', className='app-btn app-btn-submit', n_clicks=0, color='success'),
             dbc.Button('New', id='login_new', className='app-btn app-r1', n_clicks=0, color='primary'),
             dbc.Button('Cancel', id='login_close', className='app-btn app-r1', n_clicks=0, color='secondary')
-        ], className=f'app-modal-footer')
+        ], className='app-modal-footer')
     ], id='login', className='app-border', hidden=False),
     html.Div([
         dbc.ModalHeader('manage files', close_button=False, id='files_header', className='app-modal-header'),
@@ -204,10 +211,67 @@ app.layout = html.Div([
         dbc.ModalFooter([
             dbc.Button('Delete', id='files_delete', className='app-btn app-btn-submit', n_clicks=0, color='success'),
             dbc.Button('Download', id='files_download', className='app-btn app-r1', n_clicks=0, color='primary'),
-            dbc.Button('Quit', id='files_close', className='app-btn app-r1', n_clicks=0, color='secondary')
+            dbc.Button('Quit', id='files_close', className='app-btn app-r1', color='secondary')
         ], className=f'app-modal-footer')
-    ], id='files', className='app-border', hidden=True)
-], className='app-cont app-border')
+    ], id='files', className='app-border', hidden=True),
+    dbc.Modal([
+        dbc.ModalHeader([
+                dbc.ButtonGroup([
+                    dbc.Button('User interface', id='guide_ui', className='app-btn', color='info'),
+                    dbc.Button('Project description', id='guide_pd', className='app-btn', color='primary'),
+                ]),
+                dbc.Button('Quit', id='guide_close', className='app-btn', color='secondary')
+            ],
+            close_button=False, id='guide_header'),
+        dbc.ModalBody(id='guide_body'),
+    ], id='guide', size='xl', contentClassName='app-guide-body', className='app-border', scrollable=True),
+    dbc.Row([
+        dbc.Col(html.Div('Agent pane', className='app-pane')),
+        dbc.Col(
+            dbc.Card([
+                dbc.Toast('When two equal tiles collide, they combine to make one '
+                          'tile that displays their sum. as the game progresses, the tiles reach higher '
+                          'and the board gets more crowded. The objective is to reach highest '
+                          'possible score before the board fills up.\n'
+                          '-----------------------------------------\n'
+                          'Use buttons below or keyboard. Good luck!',
+                          header='Game instructions', headerClassName='inst-header',
+                          id='instruction', className='app-border', dismissable=True, is_open=False),
+                html.Div([
+                    dbc.ModalHeader('Choose option', close_button=False, className='app-modal-header'),
+                    dbc.ModalBody(children=[
+                        html.Br(),
+                        dcc.Dropdown(id='game_option_value', clearable=False),
+                    ], className='app-modal-body'),
+                    dbc.ModalFooter([
+                        dbc.Button('Go!', id='go_game', className='app-btn app-btn-submit', color='success'),
+                        dbc.Button('Quit', id='game_option_close', className='app-btn app-r1', color='secondary')
+                    ], className='app-modal-footer')
+                ], id='game_option', className='app-border', hidden=True),
+                html.Div('Waiting for action', id='what_game', className='app-pane-header'),
+                dbc.CardBody(EMPTY_BOARD, id='game_board'),
+                html.Div([
+                    daq.Gauge(id='gauge', className='gauge',
+                              color={"gradient": True, "ranges": {"blue": [0, 6], "yellow": [6, 8], "red": [8, 10]}}),
+                    html.Div('DELAY', className='app-speed-header'),
+                    dcc.Slider(id='gauge-slider', min=0, max=10, value=3, marks={v: str(v) for v in range(11)},
+                               step=0.1, className='app-speed-slider'),
+                    html.Div([
+                        dbc.Button('PAUSE', id='pause_game', className='app-btn app-pause-btn', color='info'),
+                        dbc.Button('RESUME', id='resume_game', className='app-btn app-resume-btn'),
+                    ], className='app-button-line')
+                ], id='gauge_group', className='app-gauge-group', hidden=False),
+                html.Div([
+                    dbc.Button('\u2190', id='move_0', className='move-button move-left'),
+                    dbc.Button('\u2191', id='move_1', className='move-button move-up'),
+                    dbc.Button('\u2192', id='move_2', className='move-button move-right'),
+                    dbc.Button('\u2193', id='move_3', className='move-button move-down'),
+                    dbc.Button('RESTART', id='restart_play', className='app-btn app-restart-btn', color='warning'),
+                ], id='play-yourself-group', className='app-gauge-group', hidden=True),
+            ], className='app-pane align-items-center'),
+        )
+    ])
+], className='app-cont', fluid=True)
 
 
 # general callbacks
@@ -314,17 +378,17 @@ def files_options(kind, data):
 
 
 @app.callback(
-    Output('download', 'data'), Output('alert', 'children'),
+    Output('download', 'data'), Output('alert', 'children'), Output('user_profile', 'data'),
     Input('files_download', 'n_clicks'), Input('files_delete', 'n_clicks'),
-    State('files_kind', 'value'), State('files_name', 'value')
+    State('files_kind', 'value'), State('files_name', 'value'), State('user_profile', 'data')
 )
-def manage_files(n1, n2, kind, name):
+def manage_files(n1, n2, kind, name, user):
     ctx = dash.callback_context
     if not ctx.triggered:
         raise PreventUpdate
     action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
     if kind is None or name is None:
-        return NUP, general_alert(f'Choose a file to {action}')
+        return NUP, general_alert(f'Choose a file to {action}'), NUP
     body = {
         'kind': kind,
         'name': name,
@@ -333,13 +397,135 @@ def manage_files(n1, n2, kind, name):
     resp = api_request('POST', 'file', body)
     if resp['status'] == Resp.GOOD:
         if action == 'delete':
-            return NUP, general_alert(resp['msg']['msg'], good=True)
+            if name in user[kind]:
+                user[kind].remove(name)
+            return NUP, general_alert(resp['msg']['msg'], good=True), user
         dnl = download_from_url(resp['msg']['url'])
         if dnl['status'] == Resp.GOOD:
-            return dnl['to_send'], NUP
-        return NUP, general_alert(dnl['status'])
-    return NUP, general_alert(resp['msg'])
+            return dnl['to_send'], NUP, NUP
+        return NUP, general_alert(dnl['status']), NUP
+    return NUP, general_alert(resp['msg']), NUP
 
+
+# Guide
+@app.callback(
+    Output('guide', 'is_open'),
+    Input('guide_open', 'n_clicks'), Input('guide_close', 'n_clicks')
+)
+def open_modal(n1, n2):
+    ctx = dash.callback_context.triggered[0]
+    if ctx['value'] is None:
+        raise PreventUpdate
+    trigger_id = ctx['prop_id'].split('.')[0][-1]
+    return trigger_id == 'n'
+
+
+@app.callback(
+    Output('guide_body', 'children'),
+    Input('guide_ui', 'n_clicks'), Input('guide_pd', 'n_clicks')
+)
+def guide_body(n1, n2):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    show = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
+    if show == 'ui':
+        return dcc.Markdown(interface_description, dedent=False, link_target='_blanc', className='app-guide_content')
+    else:
+        return [
+            dcc.Markdown(project_description[1], link_target='_blanc', className='app-guide_content'),
+            html.Img(src=app.get_asset_url('score_chart_2_tile.png')),
+            dcc.Markdown(project_description[2], link_target='_blanc', className='app-guide_content'),
+            html.Img(src=app.get_asset_url('score_chart_3_tile.png')),
+            dcc.Markdown(project_description[3], link_target='_blanc', className='app-guide_content'),
+            html.Img(src=app.get_asset_url('score_chart_5_tile.png')),
+            dcc.Markdown(project_description[4], link_target='_blanc', className='app-guide_content')
+        ]
+
+
+# Game Pane and Play yourself
+@app.callback(
+    Output('current_game_mode', 'data'), Output('gauge_group', 'hidden'), Output('play-yourself-group', 'hidden'),
+    Output('what_game', 'children'),
+    Input('play_open', 'n_clicks'), Input('watch_open', 'n_clicks'), Input('replay_open', 'n_clicks')
+)
+def play_yourself_start(*args):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    mode = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[0]
+    match mode:
+        case 'play':
+            return mode, True, False, mode_names[mode]
+        case _:
+            return mode, False, True, mode_names[mode]
+
+
+@app.callback(
+    Output('game_board', 'children'),
+    Input('current_game', 'data')
+)
+def draw_board(game):
+    return display_game(game)
+
+
+@app.callback(
+    Output('instruction', 'is_open'), Output('show_instruction', 'data'), Output('move_delay', 'disabled'),
+    Output('game_option', 'hidden'), Output('game_option_value', 'options'),
+    Output('current_game', 'data'), Output('alert', 'children'),
+    Input('current_game_mode', 'data'),
+    State('show_instruction', 'data')
+)
+def play_yourself_start(mode, show_instruction):
+    match mode:
+        case 'play':
+            game = GAME.new_game()
+            return show_instruction, 0, True, True, NUP, game, NUP
+        case x if x in ('watch', 'replay'):
+            body = {
+                'kind': mode
+            }
+            resp = api_request('POST', 'file', body)
+            if resp['status'] == Resp.GOOD:
+                return False, NUP, False, True, resp['msg']['list'], EMPTY_GAME, NUP
+            else:
+                return False, NUP, True, True, NUP, EMPTY_GAME, general_alert(resp['msg'])
+        case _:
+            return False, NUP, False, True, NUP, EMPTY_GAME, NUP
+
+
+@app.callback(
+    Output('current_game', 'data'),
+    [Input(f'move_{i}', 'n_clicks') for i in range(4)] + [Input('keyboard', 'n_events')],
+    State('keyboard', 'event'), State('current_game', 'data'), State('current_game_mode', 'data')
+)
+def button_and_keyboard_play(*args):
+    if args[-1] != 'play':
+        raise PreventUpdate
+    game = args[-2]
+    ctx = dash.callback_context.triggered[0]
+    if ctx['prop_id'] == 'keyboard.n_events':
+        key = args[-3]['key']
+        if not key.startswith('Arrow'):
+            raise PreventUpdate
+        move = keyboard_dict[key[5:]]
+    else:
+        move = int(ctx['prop_id'].split('.')[0][-1])
+    new_game, change = GAME.make_move(game, move)
+    if not change:
+        raise PreventUpdate
+    GAME.new_tile(new_game)
+    return new_game
+
+
+@app.callback(
+    Output('current_game', 'data'),
+    Input('restart_play', 'n_clicks')
+)
+def restart_play(n):
+    if n:
+        return GAME.new_game()
+    raise PreventUpdate
 
 # refresh status, to keep parallel processes from closing down while the app is open in the browser,
 # script "vacuum_cleaner" is killing them afterwards
@@ -1069,10 +1255,16 @@ def manage_files(n1, n2, kind, name):
 
 for v in modals_draggable:
     app.clientside_callback(
-        ClientsideFunction(namespace='clientside', function_name='make_draggable'),
+        ClientsideFunction(namespace='drag_div', function_name='drag_div'),
         Output(v, 'className'),
         Input(v, 'id')
     )
+
+app.clientside_callback(
+    ClientsideFunction(namespace='drag_toast', function_name='drag_toast'),
+    Output('instruction', 'className'),
+    Input('instruction', 'is_open'), State('instruction', 'id')
+)
 
 
 if __name__ == '__main__':
