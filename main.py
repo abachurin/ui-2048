@@ -162,6 +162,7 @@ app.layout = dbc.Container([
     dcc.Store(id='current_game', storage_type='session'),
     dcc.Store(id='current_agent_mode', storage_type='session'),
     dcc.Store(id='show_instruction', storage_type='session', data=1),
+    dcc.Store(id='logs', storage_type='session'),
     EventListener(id='keyboard'),
     dcc.Interval(id='move_delay', n_intervals=0, disabled=True),
     dcc.Download(id='download'),
@@ -226,7 +227,11 @@ app.layout = dbc.Container([
         dbc.ModalBody(id='guide_body'),
     ], id='guide', size='xl', contentClassName='app-guide-body', className='app-border', scrollable=True),
     dbc.Row([
-        dbc.Col(html.Div('Agent pane', className='app-pane')),
+        dbc.Col(
+            dbc.Card([
+                html.Div('Waiting for action', id='what_agent', className='app-pane-header'),
+            ], className='app-pane align-items-center')
+        ),
         dbc.Col(
             dbc.Card([
                 dbc.Toast('When two equal tiles collide, they combine to make one '
@@ -470,7 +475,7 @@ def draw_board(game):
 
 
 @app.callback(
-    Output('instruction', 'is_open'), Output('show_instruction', 'data'), Output('move_delay', 'disabled'),
+    Output('instruction', 'is_open'), Output('show_instruction', 'data'),
     Output('game_option', 'hidden'), Output('game_option_value', 'options'),
     Output('current_game', 'data'), Output('alert', 'children'),
     Input('current_game_mode', 'data'),
@@ -480,18 +485,18 @@ def play_yourself_start(mode, show_instruction):
     match mode:
         case 'play':
             game = GAME.new_game()
-            return show_instruction, 0, True, True, NUP, game, NUP
+            return show_instruction, 0, True, NUP, game, NUP
         case x if x in ('watch', 'replay'):
             body = {
-                'kind': mode
+                'kind': 'Agents' if mode == 'watch' else 'Games'
             }
-            resp = api_request('POST', 'file', body)
+            resp = api_request('POST', 'all_items', body)
             if resp['status'] == Resp.GOOD:
-                return False, NUP, False, True, resp['msg']['list'], EMPTY_GAME, NUP
+                return False, NUP, False, resp['msg']['list'], EMPTY_GAME, NUP
             else:
-                return False, NUP, True, True, NUP, EMPTY_GAME, general_alert(resp['msg'])
+                return False, NUP, True, NUP, EMPTY_GAME, general_alert(resp['msg'])
         case _:
-            return False, NUP, False, True, NUP, EMPTY_GAME, NUP
+            return False, NUP, True, NUP, EMPTY_GAME, NUP
 
 
 @app.callback(
@@ -525,6 +530,29 @@ def button_and_keyboard_play(*args):
 def restart_play(n):
     if n:
         return GAME.new_game()
+    raise PreventUpdate
+
+
+# Replay Game and Watch Agent
+@app.callback(
+    Output('game_option', 'hidden'),
+    Input('game_option_close', 'n_clicks')
+)
+def restart_play(n):
+    if n:
+        return True
+    raise PreventUpdate
+
+
+@app.callback(
+    Output('move_delay', 'disabled'),
+    Input('go_game', 'n_clicks'),
+    State('current_game_mode', 'data'), State('game_option_value', 'value')
+)
+def restart_play(n, mode, name):
+    if n and name:
+
+        return True
     raise PreventUpdate
 
 # refresh status, to keep parallel processes from closing down while the app is open in the browser,
