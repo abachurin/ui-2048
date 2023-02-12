@@ -7,15 +7,14 @@ import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 from dash_extensions.enrich import DashProxy, MultiplexerTransform, Output, Input, State
 from dash_extensions import EventListener
-import plotly.express as px
 
 from .game_mechanics import *
 
 navbar_logo = './assets/favicon.ico'
 navbar_title = 'Robot 2048'
 
-modals_draggable = ['login', 'files', 'game_option']
-modals_open_close = ['login', 'files']
+modals_draggable = ['login', 'files', 'users', 'game_option']
+modals_open_close = ['login', 'files', 'users']
 
 mode_names = {
     'guide': 'HELP!',
@@ -25,7 +24,7 @@ mode_names = {
     'replay': 'Replay Game',
     'play': 'Play Yourself'
 }
-mode_list = list(mode_names) + ['files', 'del_user']
+mode_list = list(mode_names) + ['files', 'del_user'] + ['users']
 keyboard_dict = {
     'Left': 0,
     'Up': 1,
@@ -57,16 +56,16 @@ def download_from_url(url: str):
                     os.fsync(f.fileno())
         to_send = dcc.send_file(name)
         os.remove(name)
-        return {'status': Resp.GOOD, 'to_send': to_send}
+        return Resp.GOOD, to_send
     else:
-        return {'status': f'Download failed: {r.status_code}, {r.text}'}
+        return f'Download failed: {r.status_code}, {r.text}', None
 
 
 def general_alert(text, good=False):
     if not text:
         return NUP
     color = 'success' if good else 'warning'
-    duration = 5000 if good else None
+    duration = 3000 if good else 10000
     return [dbc.Alert(text, dismissable=True, fade=True, color=color, duration=duration)]
 
 

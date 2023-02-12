@@ -60,9 +60,14 @@ class GameLogic:
 
     @staticmethod
     def game_over(game):
-        row = np.array(game['row'])
-        return not (40 - np.count_nonzero(row) -
-                    np.count_nonzero(row[:, :3] - row[:, 1:]) - np.count_nonzero(row[:3, :] - row[1:, :]))
+        row = game['row']
+        for i in range(4):
+            for j in range(4):
+                if row[i][j] == 0 \
+                        or (i > 0 and row[i - 1][j] == row[i][j]) \
+                        or (j > 0 and row[i][j - 1] == row[i][j]):
+                    return False
+        return True
 
     def new_tile(self, game):
         em = self.empty(game)
@@ -78,7 +83,8 @@ class GameLogic:
         new_game = self.empty_game()
         new_game['score'] = game['score']
         for i in range(4):
-            new_game['row'][i], score, change_line = self.table[tuple(game['row'][i])]
+            line, score, change_line = self.table[tuple(game['row'][i])]
+            new_game['row'][i] = line[:]
             if change_line:
                 change = True
                 new_game['score'] += score
@@ -86,20 +92,30 @@ class GameLogic:
         return new_game, change
 
     @staticmethod
-    def rotate(game, move):
+    def _rotate(game, move):
         new_game = {
             'score': game['score'],
             'moves': game['moves'],
             'next_move': game['next_move']
         }
-        row = np.array(game['row'])
-        new_game['row'] = np.rot90(row, move).tolist()
+        row = game['row']
+        new_row = [[0] * 4 for _ in range(4)]
+        for i in range(4):
+            for j in range(4):
+                match move:
+                    case 1:
+                        new_row[i][j] = row[j][3 - i]
+                    case 2:
+                        new_row[i][j] = row[3 - i][3 - j]
+                    case 3:
+                        new_row[i][j] = row[3 - j][i]
+        new_game['row'] = new_row
         return new_game
 
     def make_move(self, game, move):
-        rotated_game = self.rotate(game, move) if move else game
+        rotated_game = self._rotate(game, move) if move else game
         new_game, change = self._left(rotated_game)
-        new_game = self.rotate(new_game, 4 - move) if move else new_game
+        new_game = self._rotate(new_game, 4 - move) if move else new_game
         return new_game, change
 
 

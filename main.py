@@ -157,6 +157,9 @@ app = DashProxy(__name__, suppress_callback_exceptions=True,
 # ])
 
 app.layout = dbc.Container([
+    dcc.Interval(id='api_update', interval=5000, n_intervals=0),
+    dcc.Store(id='logs', storage_type='data'),
+    dcc.Store(id='log_break', storage_type='data'),
     dcc.Store(id='user_profile', storage_type='session'),
     dcc.Store(id='current_game_mode', storage_type='session'),
     dcc.Store(id='current_game', storage_type='session'),
@@ -169,7 +172,8 @@ app.layout = dbc.Container([
     html.Div(id='alert'),
     dbc.NavbarSimple(
         children=[
-            dbc.Button('Manage Files', id='files_open', className='app-btn', color='primary', disabled=True),
+            dbc.Button('Manage Users', id='users_open', className='app-btn', color='primary', disabled=True),
+            dbc.Button('Manage Resources', id='files_open', className='app-btn app-r1', color='primary', disabled=True),
             dbc.Button('Delete User', id='del_user_open', className='app-btn app-r1', disabled=True, color='primary'),
             dcc.ConfirmDialog(id='confirm_delete',
                               message='Are you sure? All Agents assigned to this user will be deleted'),
@@ -196,32 +200,44 @@ app.layout = dbc.Container([
         dbc.ModalFooter([
             dbc.Button('Submit', id='login_submit', className='app-btn app-btn-submit', n_clicks=0, color='success'),
             dbc.Button('New', id='login_new', className='app-btn app-r1', n_clicks=0, color='primary'),
-            dbc.Button('Cancel', id='login_close', className='app-btn app-r1', n_clicks=0, color='secondary')
+            dbc.Button('Quit', id='login_close', className='app-btn app-r1', n_clicks=0, color='warning')
         ], className='app-modal-footer')
     ], id='login', className='app-border', hidden=False),
     html.Div([
         dbc.ModalHeader('manage files', close_button=False, id='files_header', className='app-modal-header'),
         dbc.ModalBody(children=[
-            html.Br(),
-            html.Div('Agents/Games ?'),
-            dcc.Dropdown(id='files_kind', options=opt_list(['Agents', 'Games']), value='Agents', clearable=False),
-            html.Br(),
-            html.Div('Name:'),
+            html.Br(), html.Div('Agents/Games ?'),
+            dcc.Dropdown(id='files_kind', clearable=False),
+            html.Br(), html.Div('Name:'),
             dcc.Dropdown(id='files_name'),
         ], className='app-modal-body'),
         dbc.ModalFooter([
-            dbc.Button('Delete', id='files_delete', className='app-btn app-btn-submit', n_clicks=0, color='success'),
-            dbc.Button('Download', id='files_download', className='app-btn app-r1', n_clicks=0, color='primary'),
-            dbc.Button('Quit', id='files_close', className='app-btn app-r1', color='secondary')
-        ], className=f'app-modal-footer')
+            dbc.Button('Delete', id='files_delete', className='app-btn app-btn-submit', color='success'),
+            dbc.Button('Download', id='files_download', className='app-btn app-r1', color='primary'),
+            dbc.Button('Quit', id='files_close', className='app-btn app-r1', color='warning')
+        ], className='app-modal-footer')
     ], id='files', className='app-border', hidden=True),
+    html.Div([
+        dbc.ModalHeader('manage users', close_button=False, id='users_header', className='app-modal-header'),
+        dbc.ModalBody(children=[
+            html.Br(), html.Div('User :'),
+            dcc.Dropdown(id='users_name', clearable=False),
+            html.Br(), html.Div('Change Status'),
+            dcc.Dropdown(id='users_change', clearable=False)
+        ], className='app-modal-body'),
+        dbc.ModalFooter([
+            dbc.Button('Delete', id='users_delete', className='app-btn app-btn-submit', color='success'),
+            dbc.Button('Set Status', id='users_status', className='app-btn app-r1', color='primary'),
+            dbc.Button('Quit', id='users_close', className='app-btn app-r1', color='warning')
+        ], className='app-modal-footer')
+    ], id='users', className='app-border', hidden=True),
     dbc.Modal([
         dbc.ModalHeader([
                 dbc.ButtonGroup([
                     dbc.Button('User interface', id='guide_ui', className='app-btn', color='info'),
                     dbc.Button('Project description', id='guide_pd', className='app-btn', color='primary'),
                 ]),
-                dbc.Button('Quit', id='guide_close', className='app-btn', color='secondary')
+                dbc.Button('Quit', id='guide_close', className='app-btn', color='warning')
             ],
             close_button=False, id='guide_header'),
         dbc.ModalBody(id='guide_body'),
@@ -250,7 +266,7 @@ app.layout = dbc.Container([
                     ], className='app-modal-body'),
                     dbc.ModalFooter([
                         dbc.Button('Go!', id='go_game', className='app-btn app-btn-submit', color='success'),
-                        dbc.Button('Quit', id='game_option_close', className='app-btn app-r1', color='secondary')
+                        dbc.Button('Quit', id='game_option_close', className='app-btn app-r1', color='warning')
                     ], className='app-modal-footer')
                 ], id='game_option', className='app-border', hidden=True),
                 html.Div('Waiting for action', id='what_game', className='app-pane-header'),
@@ -293,6 +309,27 @@ for v in modals_open_close:
         return trigger_id == 'e'
 
 
+@app.callback(
+    Output('user_profile', 'data'), Output('alert', 'children'),
+    Input('api_update', 'n_intervals'),
+    State('user_profile', 'data')
+)
+def api_update(n, user):
+    if n:
+        body = {
+            'name': user['name'],
+            'log_break': len(user['logs'])
+        }
+        resp, content = api_request('POST', 'update', body)
+        if resp == Resp.GOOD:
+            if action == 'delete':
+                return None, general_alert(f'User {name} was successfully deleted', good=True), '', ''
+            return content['profile'], general_alert(content['msg'], good=True), '', ''
+        else:
+            return NUP, general_alert(content), NUP, NUP
+    raise PreventUpdate
+
+
 # Login
 @app.callback(
     Output('user_profile', 'data'), Output('alert', 'children'),
@@ -314,30 +351,31 @@ def login_submit(n1, n2, n3, name, pwd, profile):
         'pwd': pwd,
         'action': action
     }
-    resp = api_request('POST', 'user', body)
-    if resp['status'] == Resp.GOOD:
+    resp, content = api_request('POST', 'user', body)
+    if resp == Resp.GOOD:
         if action == 'delete':
-            return None, general_alert(resp['msg']['msg'], good=True), '', ''
-        profile = {**resp['msg']['profile'], 'name': name}
-        return profile, general_alert(resp['msg']['msg'], good=True), '', ''
+            return None, general_alert(f'User {name} was successfully deleted', good=True), '', ''
+        return content['profile'], general_alert(content['msg'], good=True), '', ''
     else:
-        return NUP, general_alert(resp['msg']), NUP, NUP
+        return NUP, general_alert(content), NUP, NUP
 
 
 @app.callback(
     [Output('login_open', 'children'), Output('alert', 'children'), Output('login', 'hidden'),
-     Output('files_name', 'options')] +
+     Output('files_kind', 'options'), Output('files_name', 'options')] +
     [Output(f'{v}_open', 'disabled') for v in mode_list],
     Input('user_profile', 'data'),
     State('files_kind', 'value')
 )
-def display_name(data, kind):
-    if data:
-        user = data['name']
-        opts = opt_list(data[kind])
-        return [user, general_alert(f'Welcome, {user}', good=True), True, opts] + \
-               [False] * len(mode_list)
-    return ['Log in', NUP, False, []] + [True] * len(mode_list)
+def display_name(user, kind):
+    if user:
+        name = user['name']
+        available = ['Agents', 'Games'] + (['jobs'] if user['status'] == 'admin' else [])
+        opts_kind = opt_list(available)
+        opts_name = opt_list(user[kind]) if kind else []
+        return [name, general_alert(f'Welcome, {name}', good=True), True, opts_kind, opts_name] \
+            + [False] * (len(mode_list) - 1) + [user['status'] != 'admin']
+    return ['Log in', NUP, False, [], []] + [True] * len(mode_list)
 
 
 @app.callback(
@@ -360,24 +398,75 @@ def display_confirm(n):
     return False
 
 
-# Manage files
+# Manage users
 @app.callback(
-    Output('files', 'hidden'),
-    Input('files_btn', 'n_clicks')
+    Output('users_name', 'options'), Output('alert', 'children'),
+    Input('users', 'hidden')
 )
-def manage_files(n):
-    if n:
-        return False
-    return True
+def username_options(hidden):
+    if hidden:
+        raise PreventUpdate
+    body = {
+        'job': 'user_list'
+    }
+    resp, content = api_request('POST', 'admin', body)
+    if resp == Resp.GOOD:
+        return opt_list(content), NUP
+    return [], general_alert(content)
 
 
+@app.callback(
+    Output('users_change', 'options'), Output('users_change', 'value'), Output('alert', 'children'),
+    Input('users_name', 'value')
+)
+def user_status(name):
+    if name:
+        body = {
+            'job': 'status_list',
+            'name': name,
+        }
+        resp, content = api_request('POST', 'admin', body)
+        if resp == Resp.GOOD:
+            return opt_list(content['list']), content['status'], NUP
+        return [], None, general_alert(content)
+    return [], None, NUP
+
+
+@app.callback(
+    Output('alert', 'children'),
+    Input('users_delete', 'n_clicks'), Input('users_status', 'n_clicks'),
+    State('users_name', 'value'), State('users_change', 'value')
+)
+def manage_users(n1, n2, name, status):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
+    if (action == 'delete' and not name) or (action == 'status' and not status):
+        return general_alert('No option chosen for selected action')
+    body = {
+        'job': action,
+        'name': name,
+        'status': status,
+    }
+    resp, content = api_request('POST', 'admin', body)
+    if resp == Resp.GOOD:
+        print(1)
+        if action == 'status':
+            return general_alert(f'{name} status set as {status}', good=True)
+        else:
+            return general_alert(f'User {name} deleted', good=True)
+    return general_alert(content)
+
+
+# Manage files
 @app.callback(
     Output('files_name', 'options'),
     Input('files_kind', 'value'),
     State('user_profile', 'data')
 )
 def files_options(kind, data):
-    if data:
+    if kind and data:
         return opt_list(data[kind])
     return []
 
@@ -399,17 +488,17 @@ def manage_files(n1, n2, kind, name, user):
         'name': name,
         'action': action
     }
-    resp = api_request('POST', 'file', body)
-    if resp['status'] == Resp.GOOD:
+    resp, content = api_request('POST', 'file', body)
+    if resp == Resp.GOOD:
         if action == 'delete':
             if name in user[kind]:
                 user[kind].remove(name)
-            return NUP, general_alert(resp['msg']['msg'], good=True), user
-        dnl = download_from_url(resp['msg']['url'])
-        if dnl['status'] == Resp.GOOD:
-            return dnl['to_send'], NUP, NUP
-        return NUP, general_alert(dnl['status']), NUP
-    return NUP, general_alert(resp['msg']), NUP
+            return NUP, general_alert(f'{name} was successfully deleted', good=True), user
+        status, to_send = download_from_url(content)
+        if status == Resp.GOOD:
+            return to_send, NUP, NUP
+        return NUP, general_alert(status), NUP
+    return NUP, general_alert(resp), NUP
 
 
 # Guide
@@ -490,11 +579,11 @@ def play_yourself_start(mode, show_instruction):
             body = {
                 'kind': 'Agents' if mode == 'watch' else 'Games'
             }
-            resp = api_request('POST', 'all_items', body)
-            if resp['status'] == Resp.GOOD:
-                return False, NUP, False, resp['msg']['list'], EMPTY_GAME, NUP
+            resp, content = api_request('POST', 'all_items', body)
+            if resp == Resp.GOOD:
+                return False, NUP, False, content, EMPTY_GAME, NUP
             else:
-                return False, NUP, True, NUP, EMPTY_GAME, general_alert(resp['msg'])
+                return False, NUP, True, NUP, EMPTY_GAME, general_alert(content)
         case _:
             return False, NUP, True, NUP, EMPTY_GAME, NUP
 

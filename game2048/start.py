@@ -12,7 +12,6 @@ import boto3
 import base64
 from dateutil import parser
 import requests
-import numpy as np
 from enum import Enum
 
 LOCAL = os.environ.get('S3_URL', 'local') == 'local'
@@ -31,11 +30,11 @@ def api_request(kind, suffix, body):
     try:
         response = requests.request(kind, url, json=body)
         if response.status_code != 200:
-            return {'status': Resp.INVALID, 'msg': f'Invalid backend response: {response.status_code}'}
+            return Resp.INVALID, f'Invalid backend response: {response.status_code}'
         response_message = json.loads(response.text)
         if response_message['status'] != 'ok':
-            return {'status': Resp.BAD, 'msg': response_message['status']}
+            return Resp.BAD, response_message['status']
         else:
-            return {'status': Resp.GOOD, 'msg': response_message['content']}
+            return Resp.GOOD, response_message['content']
     except requests.exceptions.ConnectionError:
-        return {'status': Resp.NONE, 'msg': 'No connection to backend, contact Support'}
+        return Resp.NONE, 'No connection to backend, contact Support'

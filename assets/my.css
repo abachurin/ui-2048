@@ -152,11 +152,11 @@
 #login {
 	position: absolute;
     height: 16rem;
-	width: 27rem;
-	left: calc(50% - 13.5rem);
+	width: 26rem;
+	left: calc(50% - 13rem);
 	top: 10rem;
     background: var(--app-light-blue);
-    z-index: 100;
+    z-index: 200;
 }
 
 .login-name {
@@ -177,12 +177,22 @@
     font-size: 0.8rem;
 }
 
-/* Files management window*/
+/* Management windows */
+#users {
+	position: absolute;
+	width: 28rem;
+    height: 20rem;
+	left: calc(50% - 14rem);
+	top: 15rem;
+    background: var(--bs-gray-100);
+    z-index: 100;
+}
+
 #files {
 	position: absolute;
-	width: 27rem;
+	width: 28rem;
     height: 20rem;
-	left: calc(50% - 13.5rem);
+	left: calc(50% - 14rem);
 	top: 15rem;
     background: var(--bs-gray-100);
     z-index: 100;
