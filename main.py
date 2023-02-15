@@ -1,13 +1,16 @@
 from game2048.dash_utils import *
 
 dash_directory = os.path.dirname(os.path.realpath(__file__))
-with open(os.path.join(dash_directory, 'assets', 'user_guide.md'), 'r') as f:
-    interface_description = f.read()
 
-project_description = {}
+with open(os.path.join(dash_directory, 'assets', 'user_guide.md'), 'r') as f:
+    guide_interface = f.read()
+with open(os.path.join(dash_directory, 'assets', 'structure.md'), 'r') as f:
+    guide_structure = f.read()
+guide_history = {}
 for i in (1, 2, 3, 4):
     with open(os.path.join(dash_directory, 'assets', f'project_{i}.md'), 'r') as f:
-        project_description[i] = f.read()
+        guide_history[i] = f.read()
+
 
 app = DashProxy(__name__, suppress_callback_exceptions=True,
                 transforms=[MultiplexerTransform()], title='RL Agent 2048', update_title=None,
@@ -123,60 +126,31 @@ app = DashProxy(__name__, suppress_callback_exceptions=True,
 #                     html.Div(id='log_footer', className='card-footer log-footer')
 #                 ], className='logs-window'),
 #             ], className='log-box'),
-#         ),
-#         dbc.Col([
-#             dbc.Card([
-#                 dbc.Toast('Use buttons below or keyboard!\n'
-#                           'When two equal tiles collide, they combine to give you one '
-#                           'greater tile that displays their sum. The more you do this, obviously, the higher the '
-#                           'tiles get and the more crowded the board becomes. Your objective is to reach highest '
-#                           'possible score before the board fills up', header='Game instructions',
-#                           headerClassName='inst-header', id='play_instructions', dismissable=True, is_open=False),
-#                 dbc.CardBody(id='game_card'),
-#                 html.Div([
-#                     daq.Gauge(id='gauge', className='gauge',
-#                               color={"gradient": True, "ranges": {"blue": [0, 6], "yellow": [6, 8], "red": [8, 10]}}),
-#                     html.H6('DELAY', className='speed-header'),
-#                     dcc.Slider(id='gauge-slider', min=0, max=10, value=3, marks={v: str(v) for v in range(11)},
-#                                step=0.1, className='slider'),
-#                     html.Div([
-#                         dbc.Button('PAUSE', id='pause_game', n_clicks=0, className='one-button pause-button'),
-#                         dbc.Button('RESUME', id='resume_game', n_clicks=0, className='one-button resume-button'),
-#                     ], className='button-line')
-#                 ], id='gauge_group', className='gauge-group'),
-#                 html.Div([
-#                     dbc.Button('\u2190', id='move_0', className='move-button move-left'),
-#                     dbc.Button('\u2191', id='move_1', className='move-button move-up'),
-#                     dbc.Button('\u2192', id='move_2', className='move-button move-right'),
-#                     dbc.Button('\u2193', id='move_3', className='move-button move-down'),
-#                     dbc.Button('RESTART', id='restart_play', className='restart-play'),
-#                 ], id='play-yourself-group', className='gauge-group', style={'display': 'none'}),
-#             ], className='log-box align-items-center'),
-#         ])
-#     ])
+#         )
 # ])
 
 app.layout = dbc.Container([
-    dcc.Interval(id='api_update', interval=5000, n_intervals=0),
-    dcc.Store(id='logs', storage_type='data'),
-    dcc.Store(id='log_break', storage_type='data'),
+    dcc.Interval(id='api_update', interval=5000, disabled=True),
     dcc.Store(id='user_profile', storage_type='session'),
+    dcc.Store(id='logs', storage_type='session'),
+    dcc.Store(id='max_logs', storage_type='session'),
     dcc.Store(id='current_game_mode', storage_type='session'),
     dcc.Store(id='current_game', storage_type='session'),
     dcc.Store(id='current_agent_mode', storage_type='session'),
     dcc.Store(id='show_instruction', storage_type='session', data=1),
-    dcc.Store(id='logs', storage_type='session'),
     EventListener(id='keyboard'),
     dcc.Interval(id='move_delay', n_intervals=0, disabled=True),
     dcc.Download(id='download'),
     html.Div(id='alert'),
+    dcc.ConfirmDialog(id='confirm_delete',
+                      message='Are you sure? All Agents assigned to this user will be deleted'),
+    dcc.ConfirmDialog(id='confirm_user_delete',
+                      message='Are you sure? All Agents assigned to this user will be deleted'),
     dbc.NavbarSimple(
         children=[
             dbc.Button('Manage Users', id='users_open', className='app-btn', color='primary', disabled=True),
             dbc.Button('Manage Resources', id='files_open', className='app-btn app-r1', color='primary', disabled=True),
             dbc.Button('Delete User', id='del_user_open', className='app-btn app-r1', disabled=True, color='primary'),
-            dcc.ConfirmDialog(id='confirm_delete',
-                              message='Are you sure? All Agents assigned to this user will be deleted'),
             dbc.Button('Log in', id='login_open', className='app-btn app-r1', color='success'),
             dbc.Button('Quit', id='quit', className='app-btn app-r1', color='warning')
         ],
@@ -207,13 +181,13 @@ app.layout = dbc.Container([
         dbc.ModalHeader('manage files', close_button=False, id='files_header', className='app-modal-header'),
         dbc.ModalBody(children=[
             html.Br(), html.Div('Agents/Games ?'),
-            dcc.Dropdown(id='files_kind', clearable=False),
+            dcc.Dropdown(id='files_kind', options=opt_list(FIELDS), clearable=False),
             html.Br(), html.Div('Name:'),
             dcc.Dropdown(id='files_name'),
         ], className='app-modal-body'),
         dbc.ModalFooter([
             dbc.Button('Delete', id='files_delete', className='app-btn app-btn-submit', color='success'),
-            dbc.Button('Download', id='files_download', className='app-btn app-r1', color='primary'),
+            dbc.Button('Download', id='files_download', className='app-btn app-r1', color='primary', disabled=False),
             dbc.Button('Quit', id='files_close', className='app-btn app-r1', color='warning')
         ], className='app-modal-footer')
     ], id='files', className='app-border', hidden=True),
@@ -234,8 +208,9 @@ app.layout = dbc.Container([
     dbc.Modal([
         dbc.ModalHeader([
                 dbc.ButtonGroup([
-                    dbc.Button('User interface', id='guide_ui', className='app-btn', color='info'),
-                    dbc.Button('Project description', id='guide_pd', className='app-btn', color='primary'),
+                    dbc.Button('Interface', id='guide_ui', className='app-btn', color='info'),
+                    dbc.Button('History', id='guide_pd', className='app-btn', color='primary'),
+                    dbc.Button('Structure', id='guide_ps', className='app-btn', color='secondary'),
                 ]),
                 dbc.Button('Quit', id='guide_close', className='app-btn', color='warning')
             ],
@@ -245,18 +220,34 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(
             dbc.Card([
+                html.Div([
+                    dbc.ModalHeader('Training Parameters', close_button=False, className='app-modal-header'),
+                    dbc.ModalBody(children=[
+                        'train params'
+                    ], className='app-modal-body'),
+                    dbc.ModalFooter([
+                        dbc.Button('Go!', id='train_btn', className='app-btn app-btn-submit', color='success'),
+                        dbc.Button('Quit', id='train_close', className='app-btn app-r1', color='warning')
+                    ], className='app-modal-footer')
+                ], id='train', className='app-border', hidden=True),
+                html.Div([
+                    dbc.ModalHeader('Test Parameters', close_button=False, className='app-modal-header'),
+                    dbc.ModalBody(children=[
+                        'test params'
+                    ], className='app-modal-body'),
+                    dbc.ModalFooter([
+                        dbc.Button('Go!', id='test_btn', className='app-btn app-btn-submit', color='success'),
+                        dbc.Button('Quit', id='stat_close', className='app-btn app-r1', color='warning')
+                    ], className='app-modal-footer')
+                ], id='stat', className='app-border', hidden=True),
                 html.Div('Waiting for action', id='what_agent', className='app-pane-header'),
+                html.Div(id='agent_window', className='agent-window'),
+                html.Div(id='logs_window', className='logs-window'),
             ], className='app-pane align-items-center')
         ),
         dbc.Col(
             dbc.Card([
-                dbc.Toast('When two equal tiles collide, they combine to make one '
-                          'tile that displays their sum. as the game progresses, the tiles reach higher '
-                          'and the board gets more crowded. The objective is to reach highest '
-                          'possible score before the board fills up.\n'
-                          '-----------------------------------------\n'
-                          'Use buttons below or keyboard. Good luck!',
-                          header='Game instructions', headerClassName='inst-header',
+                dbc.Toast(self_play_instruction, header='Game instructions', headerClassName='inst-header',
                           id='instruction', className='app-border', dismissable=True, is_open=False),
                 html.Div([
                     dbc.ModalHeader('Choose option', close_button=False, className='app-modal-header'),
@@ -301,51 +292,88 @@ for v in modals_open_close:
         Output(v, 'hidden'),
         Input(f'{v}_open', 'n_clicks'), Input(f'{v}_close', 'n_clicks')
     )
-    def open_modal(n1, n2):
-        ctx = dash.callback_context.triggered[0]
+    def open_modal(*args):
+        ctx = callback_context.triggered[0]
         if ctx['value'] is None:
             raise PreventUpdate
         trigger_id = ctx['prop_id'].split('.')[0][-1]
         return trigger_id == 'e'
 
 
+for v in modals_just_close:
+    @app.callback(
+        Output(v, 'hidden'),
+        Input(f'{v}_close', 'n_clicks')
+    )
+    def just_close(n):
+        if n:
+            return True
+        raise PreventUpdate
+
+
+for v in buttons_to_confirm:
+    @app.callback(
+        Output(buttons_to_confirm[v], 'displayed'),
+        Input(v, 'n_clicks')
+    )
+    def display_confirm(n):
+        if n:
+            return True
+        return False
+
+
+#  Update User attributes and logs
 @app.callback(
-    Output('user_profile', 'data'), Output('alert', 'children'),
+    Output('user_profile', 'data'), Output('logs', 'data'), Output('alert', 'children'),
     Input('api_update', 'n_intervals'),
-    State('user_profile', 'data')
+    State('user_profile', 'data'), State('logs', 'data'), State('max_logs', 'data')
 )
-def api_update(n, user):
-    if n:
+def api_update(n, user, logs, max_logs):
+    if n and user:
         body = {
             'name': user['name'],
-            'log_break': len(user['logs'])
+            'log_break': len(logs)
         }
         resp, content = api_request('POST', 'update', body)
         if resp == Resp.GOOD:
-            if action == 'delete':
-                return None, general_alert(f'User {name} was successfully deleted', good=True), '', ''
-            return content['profile'], general_alert(content['msg'], good=True), '', ''
-        else:
-            return NUP, general_alert(content), NUP, NUP
+            new_logs = (logs + content['new_logs'])[-max_logs:] if content['new_logs'] else NUP
+            return content['profile'], new_logs, NUP
+        elif resp == Resp.BAD:
+            return None, [], general_alert(content)
+        return NUP, NUP, general_alert(content)
     raise PreventUpdate
+
+
+@app.callback(
+    Output('logs_window', 'children'),
+    Input('logs', 'data'),
+)
+def logs_update(logs):
+    if logs:
+        return '\n'.join(logs)
+    return ''
 
 
 # Login
 @app.callback(
-    Output('user_profile', 'data'), Output('alert', 'children'),
-    Output('login_name', 'value'), Output('login_pwd', 'value'),
+    Output('login_open', 'children'), Output('login', 'hidden'), Output('user_profile', 'data'),
+    Output('logs', 'data'), Output('alert', 'children'), Output('login_name', 'value'),
+    Output('login_pwd', 'value'), Output('max_logs', 'data'),
     Input('login_submit', 'n_clicks'), Input('login_new', 'n_clicks'), Input('confirm_delete', 'submit_n_clicks'),
     State('login_name', 'value'), State('login_pwd', 'value'), State('user_profile', 'data')
 )
 def login_submit(n1, n2, n3, name, pwd, profile):
-    ctx = dash.callback_context
+    ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
     action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
     if action == 'delete':
         name, pwd = profile['name'], 'x'
     if not name or not pwd:
-        return NUP, general_alert('Name and Password should be filled'), NUP, NUP
+        return NUP, NUP, NUP, NUP, general_alert('Name and Password should be filled'), NUP, NUP, NUP
+    if not re.match("^[\w\d_]+$", name):
+        return NUP, NUP, NUP, NUP, general_alert('Name should only contain literals, numbers and "_" symbol'), \
+               NUP, NUP, NUP
     body = {
         'name': name,
         'pwd': pwd,
@@ -354,63 +382,53 @@ def login_submit(n1, n2, n3, name, pwd, profile):
     resp, content = api_request('POST', 'user', body)
     if resp == Resp.GOOD:
         if action == 'delete':
-            return None, general_alert(f'User {name} was successfully deleted', good=True), '', ''
-        return content['profile'], general_alert(content['msg'], good=True), '', ''
+            return 'Log in', False, None, [], general_alert(f'User {name} was successfully deleted', good=True), \
+                   '', '', NUP
+        user = content['profile']
+        new_name = user['name']
+        logs = user.pop('logs')
+        msg = f'Welcome back, {new_name}!' if action == 'submit' else f'Welcome, {new_name}!'
+        return new_name, True, user, logs, general_alert(msg, good=True), '', '', content['max_logs']
     else:
-        return NUP, general_alert(content), NUP, NUP
+        return NUP, NUP, NUP, NUP, general_alert(content), NUP, NUP, NUP
 
 
 @app.callback(
-    [Output('login_open', 'children'), Output('alert', 'children'), Output('login', 'hidden'),
-     Output('files_kind', 'options'), Output('files_name', 'options')] +
+    [Output('api_update', 'disabled')] +
     [Output(f'{v}_open', 'disabled') for v in mode_list],
-    Input('user_profile', 'data'),
-    State('files_kind', 'value')
+    Input('user_profile', 'data')
 )
-def display_name(user, kind):
+def display_name(user):
     if user:
-        name = user['name']
-        available = ['Agents', 'Games'] + (['jobs'] if user['status'] == 'admin' else [])
-        opts_kind = opt_list(available)
-        opts_name = opt_list(user[kind]) if kind else []
-        return [name, general_alert(f'Welcome, {name}', good=True), True, opts_kind, opts_name] \
-            + [False] * (len(mode_list) - 1) + [user['status'] != 'admin']
-    return ['Log in', NUP, False, [], []] + [True] * len(mode_list)
+        return [False] * len(mode_list) + [user['status'] != 'admin']
+    return [True] * (len(mode_list) + 1)
 
 
 @app.callback(
-    Output('user_profile', 'data'),
+    Output('user_profile', 'data'), Output('logs', 'data'),
     Input('quit', 'n_clicks')
 )
 def login_quit(n):
     if n:
-        return None
+        return None, []
     raise PreventUpdate
-
-
-@app.callback(
-    Output('confirm_delete', 'displayed'),
-    Input('del_user_open', 'n_clicks')
-)
-def display_confirm(n):
-    if n:
-        return True
-    return False
 
 
 # Manage users
 @app.callback(
     Output('users_name', 'options'), Output('alert', 'children'),
-    Input('users', 'hidden')
+    Input('users', 'hidden'),
+    State('user_profile', 'data')
 )
-def username_options(hidden):
+def username_options(hidden, user):
     if hidden:
         raise PreventUpdate
     body = {
-        'job': 'user_list'
+        'kind': 'name'
     }
-    resp, content = api_request('POST', 'admin', body)
+    resp, content = api_request('POST', 'all_items', body)
     if resp == Resp.GOOD:
+        content.remove(user['name'])
         return opt_list(content), NUP
     return [], general_alert(content)
 
@@ -434,41 +452,64 @@ def user_status(name):
 
 @app.callback(
     Output('alert', 'children'),
-    Input('users_delete', 'n_clicks'), Input('users_status', 'n_clicks'),
+    Input('users_status', 'n_clicks'),
     State('users_name', 'value'), State('users_change', 'value')
 )
-def manage_users(n1, n2, name, status):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        raise PreventUpdate
-    action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
-    if (action == 'delete' and not name) or (action == 'status' and not status):
+def manage_users(n, name, status):
+    if n:
+        if status:
+            body = {
+                'job': 'status',
+                'name': name,
+                'status': status,
+            }
+            resp, content = api_request('POST', 'admin', body)
+            if resp == Resp.GOOD:
+                return general_alert(f'{name} status set as {status}', good=True)
+            return general_alert(content)
         return general_alert('No option chosen for selected action')
-    body = {
-        'job': action,
-        'name': name,
-        'status': status,
-    }
-    resp, content = api_request('POST', 'admin', body)
-    if resp == Resp.GOOD:
-        print(1)
-        if action == 'status':
-            return general_alert(f'{name} status set as {status}', good=True)
+    raise PreventUpdate
+
+
+@app.callback(
+    Output('users_name', 'options'), Output('alert', 'children'),
+    Input('confirm_user_delete', 'submit_n_clicks'),
+    State('users_name', 'value'), State('users_name', 'options')
+)
+def manage_users(n, name, options):
+    if n:
+        body = {
+            'name': name,
+            'pwd': 'x',
+            'action': 'delete'
+        }
+        resp, content = api_request('POST', 'user', body)
+        if resp == Resp.GOOD:
+            options = [v for v in options if v['label'] != name]
+            return options, general_alert(f'User {name} was successfully deleted', good=True),
         else:
-            return general_alert(f'User {name} deleted', good=True)
-    return general_alert(content)
+            return NUP, general_alert(content)
+    raise PreventUpdate
 
 
 # Manage files
 @app.callback(
-    Output('files_name', 'options'),
+    Output('files_name', 'options'), Output('alert', 'children'),
     Input('files_kind', 'value'),
     State('user_profile', 'data')
 )
-def files_options(kind, data):
-    if kind and data:
-        return opt_list(data[kind])
-    return []
+def files_options(kind, user):
+    if kind and user:
+        if user['status'] == 'admin':
+            body = {
+                'kind': kind
+            }
+            resp, content = api_request('POST', 'all_items', body)
+            if resp == Resp.GOOD:
+                return opt_list(content), NUP
+            return NUP, general_alert(content)
+        return opt_list(user[kind]), NUP
+    return [], NUP
 
 
 @app.callback(
@@ -477,7 +518,7 @@ def files_options(kind, data):
     State('files_kind', 'value'), State('files_name', 'value'), State('user_profile', 'data')
 )
 def manage_files(n1, n2, kind, name, user):
-    ctx = dash.callback_context
+    ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
     action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
@@ -506,8 +547,8 @@ def manage_files(n1, n2, kind, name, user):
     Output('guide', 'is_open'),
     Input('guide_open', 'n_clicks'), Input('guide_close', 'n_clicks')
 )
-def open_modal(n1, n2):
-    ctx = dash.callback_context.triggered[0]
+def open_modal(*args):
+    ctx = callback_context.triggered[0]
     if ctx['value'] is None:
         raise PreventUpdate
     trigger_id = ctx['prop_id'].split('.')[0][-1]
@@ -516,25 +557,28 @@ def open_modal(n1, n2):
 
 @app.callback(
     Output('guide_body', 'children'),
-    Input('guide_ui', 'n_clicks'), Input('guide_pd', 'n_clicks')
+    Input('guide_ui', 'n_clicks'), Input('guide_pd', 'n_clicks'), Input('guide_ps', 'n_clicks')
 )
-def guide_body(n1, n2):
-    ctx = dash.callback_context
+def guide_body(*args):
+    ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
     show = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
-    if show == 'ui':
-        return dcc.Markdown(interface_description, dedent=False, link_target='_blanc', className='app-guide_content')
-    else:
-        return [
-            dcc.Markdown(project_description[1], link_target='_blanc', className='app-guide_content'),
-            html.Img(src=app.get_asset_url('score_chart_2_tile.png')),
-            dcc.Markdown(project_description[2], link_target='_blanc', className='app-guide_content'),
-            html.Img(src=app.get_asset_url('score_chart_3_tile.png')),
-            dcc.Markdown(project_description[3], link_target='_blanc', className='app-guide_content'),
-            html.Img(src=app.get_asset_url('score_chart_5_tile.png')),
-            dcc.Markdown(project_description[4], link_target='_blanc', className='app-guide_content')
-        ]
+    match show:
+        case 'ui':
+            return dcc.Markdown(guide_interface, dedent=False, link_target='_blanc', className='app-guide_content')
+        case 'ps':
+            return dcc.Markdown(guide_structure, dedent=False, link_target='_blanc', className='app-guide_content')
+        case 'pd':
+            return [
+                dcc.Markdown(guide_history[1], link_target='_blanc', className='app-guide_content'),
+                html.Img(src=app.get_asset_url('score_chart_2_tile.png')),
+                dcc.Markdown(guide_history[2], link_target='_blanc', className='app-guide_content'),
+                html.Img(src=app.get_asset_url('score_chart_3_tile.png')),
+                dcc.Markdown(guide_history[3], link_target='_blanc', className='app-guide_content'),
+                html.Img(src=app.get_asset_url('score_chart_5_tile.png')),
+                dcc.Markdown(guide_history[4], link_target='_blanc', className='app-guide_content')
+            ]
 
 
 # Game Pane and Play yourself
@@ -544,7 +588,7 @@ def guide_body(n1, n2):
     Input('play_open', 'n_clicks'), Input('watch_open', 'n_clicks'), Input('replay_open', 'n_clicks')
 )
 def play_yourself_start(*args):
-    ctx = dash.callback_context
+    ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
     mode = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[0]
@@ -597,7 +641,7 @@ def button_and_keyboard_play(*args):
     if args[-1] != 'play':
         raise PreventUpdate
     game = args[-2]
-    ctx = dash.callback_context.triggered[0]
+    ctx = callback_context.triggered[0]
     if ctx['prop_id'] == 'keyboard.n_events':
         key = args[-3]['key']
         if not key.startswith('Arrow'):
@@ -624,25 +668,115 @@ def restart_play(n):
 
 # Replay Game and Watch Agent
 @app.callback(
-    Output('game_option', 'hidden'),
-    Input('game_option_close', 'n_clicks')
-)
-def restart_play(n):
-    if n:
-        return True
-    raise PreventUpdate
-
-
-@app.callback(
     Output('move_delay', 'disabled'),
     Input('go_game', 'n_clicks'),
     State('current_game_mode', 'data'), State('game_option_value', 'value')
 )
 def restart_play(n, mode, name):
     if n and name:
-
         return True
     raise PreventUpdate
+
+
+# Agent pane
+@app.callback(
+    Output('current_agent_mode', 'data'), Output('what_agent', 'children'),
+    Output('stat', 'hidden'), Output('train', 'hidden'),
+    Input('train_open', 'n_clicks'), Input('stat_open', 'n_clicks')
+)
+def get_agent_params(*args):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    mode = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[0]
+    match mode:
+        case 'train':
+            return mode, mode_names[mode], True, False,
+        case 'stat':
+            return mode, mode_names[mode], False, True
+
+
+@app.callback(
+    Output('stat', 'hidden'), Output('user_profile', 'data'), Output('alert', 'children'),
+    Input('test_btn', 'n_clicks'),
+    State('user_profile', 'data')
+)
+def test_agent(n, user):
+    if n:
+        if user['working'] is not None and user['status'] != 'admin':
+            return True, NUP, general_alert(f'You are already running: {user["working"]}')
+        name = user['name']
+        idx = f'{name}:test:{time_suffix()}'
+        body = {
+            'task': 'test',
+            'params': {
+                'p': random.randrange(3, 8),
+                'name': name,
+                'idx': idx,
+            }
+        }
+        resp, content = api_request('POST', 'slow', body)
+        if resp == Resp.GOOD:
+            user['working'] = idx
+            return True, user, NUP
+        else:
+            return NUP, NUP, general_alert(content)
+    raise PreventUpdate
+
+
+@app.callback(
+    Output('train', 'hidden'), Output('user_profile', 'data'), Output('alert', 'children'),
+    Input('train_btn', 'n_clicks'),
+    State('user_profile', 'data')
+)
+def train_agent(n, user):
+    if n:
+        if user['working'] is not None and user['status'] != 'admin':
+            return True, NUP, general_alert(f'You are already running: {user["working"]}')
+        name = user['name']
+        idx = f'{name}:train:{time_suffix()}'
+        body = {
+            'task': 'train',
+            'params': {
+                'p': random.randrange(3, 8),
+                'name': name,
+                'idx': idx,
+            }
+        }
+        resp, content = api_request('POST', 'slow', body)
+        if resp == Resp.GOOD:
+            user['working'] = idx
+            return True, user, NUP
+        else:
+            return NUP, NUP, general_alert(content)
+    raise PreventUpdate
+
+
+
+# @app.callback(
+#     Output('instruction', 'is_open'), Output('show_instruction', 'data'),
+#     Output('game_option', 'hidden'), Output('game_option_value', 'options'),
+#     Output('current_game', 'data'), Output('alert', 'children'),
+#     Input('current_game_mode', 'data'),
+#     State('show_instruction', 'data')
+# )
+# def play_yourself_start(mode, show_instruction):
+#     match mode:
+#         case 'play':
+#             game = GAME.new_game()
+#             return show_instruction, 0, True, NUP, game, NUP
+#         case x if x in ('watch', 'replay'):
+#             body = {
+#                 'kind': 'Agents' if mode == 'watch' else 'Games'
+#             }
+#             resp, content = api_request('POST', 'all_items', body)
+#             if resp == Resp.GOOD:
+#                 return False, NUP, False, content, EMPTY_GAME, NUP
+#             else:
+#                 return False, NUP, True, NUP, EMPTY_GAME, general_alert(content)
+#         case _:
+#             return False, NUP, True, NUP, EMPTY_GAME, NUP
+
 
 # refresh status, to keep parallel processes from closing down while the app is open in the browser,
 # script "vacuum_cleaner" is killing them afterwards
@@ -1368,7 +1502,6 @@ def restart_play(n, mode, name):
 #         return {'display': 'none'}, tags, False, False
 #     else:
 #         raise PreventUpdate
-
 
 for v in modals_draggable:
     app.clientside_callback(

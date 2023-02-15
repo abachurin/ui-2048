@@ -1,6 +1,5 @@
-import dash
 from dash import no_update as NUP
-from dash import dcc, html
+from dash import dcc, html, callback_context
 from dash.dependencies import ClientsideFunction
 import dash_daq as daq
 import dash_bootstrap_components as dbc
@@ -13,8 +12,13 @@ from .game_mechanics import *
 navbar_logo = './assets/favicon.ico'
 navbar_title = 'Robot 2048'
 
-modals_draggable = ['login', 'files', 'users', 'game_option']
+modals_draggable = ['login', 'files', 'users', 'train', 'stat', 'game_option']
 modals_open_close = ['login', 'files', 'users']
+modals_just_close = ['train', 'stat', 'game_option']
+buttons_to_confirm = {
+    'del_user_open': 'confirm_delete',
+    'users_delete': 'confirm_user_delete'
+}
 
 mode_names = {
     'guide': 'HELP!',
@@ -31,17 +35,21 @@ keyboard_dict = {
     'Right': 2,
     'Down': 3
 }
+self_play_instruction = 'When two equal tiles collide, they combine to make one tile that displays their sum. ' \
+                        'as the game progresses, the tiles reach higher and the board gets more crowded. ' \
+                        'The objective is to reach highest possible score before the board fills up.\n' \
+                        '-----------------------------------------\nUse buttons below or keyboard. Good luck!'
 
-params_list = ['name', 'n', 'alpha', 'decay', 'decay_step', 'low_alpha_limit', 'Training episodes']
-params_dict = {
-    'name': {'element': 'input', 'type': 'text', 'value': 'test_agent', 'disable': False},
-    'n': {'element': 'select', 'value': 4, 'options': [2, 3, 4, 5, 6], 'disable': True},
-    'alpha': {'element': 'input', 'type': 'number', 'value': 0.25, 'step': 0.0001, 'disable': False},
-    'decay': {'element': 'input', 'type': 'number', 'value': 0.75, 'step': 0.01, 'disable': False},
-    'decay_step': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000, 'disable': False},
-    'low_alpha_limit': {'element': 'input', 'type': 'number', 'value': 0.01, 'step': 0.0001, 'disable': False},
-    'Training episodes': {'element': 'input', 'type': 'number', 'value': 100000, 'step': 1000, 'disable': False},
-}
+# params_list = ['name', 'n', 'alpha', 'decay', 'decay_step', 'low_alpha_limit', 'Training episodes']
+# params_dict = {
+#     'name': {'element': 'input', 'type': 'text', 'value': 'test_agent', 'disable': False},
+#     'n': {'element': 'select', 'value': 4, 'options': [2, 3, 4, 5, 6], 'disable': True},
+#     'alpha': {'element': 'input', 'type': 'number', 'value': 0.25, 'step': 0.0001, 'disable': False},
+#     'decay': {'element': 'input', 'type': 'number', 'value': 0.75, 'step': 0.01, 'disable': False},
+#     'decay_step': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000, 'disable': False},
+#     'low_alpha_limit': {'element': 'input', 'type': 'number', 'value': 0.01, 'step': 0.0001, 'disable': False},
+#     'Training episodes': {'element': 'input', 'type': 'number', 'value': 100000, 'step': 1000, 'disable': False},
+# }
 
 
 def download_from_url(url: str):
