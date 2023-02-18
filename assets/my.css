@@ -25,6 +25,10 @@
 	font-family: Roboto, sans-serif !important;
 }
 
+.app-r1 {
+    margin-left: 1rem;
+}
+
 .app-input-field {
     position: absolute;
     width: calc(100% - 2rem);
@@ -46,15 +50,14 @@
 
 .app-cont {
 	position: absolute;
-    margin: 1rem;
     padding: 1rem;
-	width: calc(100vw - 2rem);
-    height: calc(100vh - 2rem);
+	width: 100vw;
+    height: 100vh;
 }
 
 .app-pane {
     margin-top: 1rem;
-    min-width: 30rem;
+    min-width: 28rem;
     height: 54rem;
     padding: 1rem;
 }
@@ -134,10 +137,6 @@
 
 .app-btn-login {
     margin-left: 5rem;
-}
-
-.app-r1 {
-    margin-left: 1rem;
 }
 
 .app-table-nav {
@@ -341,24 +340,23 @@
 
 /* Agent and Logs pane */
 
-.agent-window {
+.app-agent-window {
     position: absolute;
     top: 3.5rem;
     width: calc(100% - 2rem);
-    height: 6rem;
+    height: 11.5rem;
     padding: 0.5rem;
-    overflow: auto;
-    display: flex;
-    background: var(--app-light-blue);
-    color: var(--bs-black);
+    white-space: pre-wrap;
+    background: var(--bs-primary);
+    color: var(--bs-white);
 }
 
-.logs-window {
+.app-logs-window {
     position: absolute;
-    top: 10.5rem;
+    top: 16rem;
     bottom: 1rem;
     width: calc(100% - 2rem);
-    padding: 0.5rem;
+    padding: 1rem;
     overflow: auto;
     display: flex;
     flex-direction: column-reverse;
@@ -367,26 +365,41 @@
     color: var(--bs-yellow);
 }
 
-#train {
+.app-clear-logs {
     position: absolute;
-    top: 7rem;
-    left: calc(50% - 12rem);
-    height: 15rem;
-    width: 24rem;
-    background: var(--bs-gray-100);
+    top: 17rem;
+    right: 2rem;
+}
+
+#agent {
+    position: absolute;
+    top: 5rem;
+    left: calc(50% - 14rem);
+    height: 33rem;
+    width: 28rem;
+    background: var(--bs-white);
     white-space: pre-wrap;
-    opacity: 0.9;
     z-index: 100;
 }
 
-#stat {
+.app-train-radio {
     position: absolute;
-    top: 7rem;
-    left: calc(50% - 12rem);
-    height: 15rem;
-    width: 24rem;
-    background: var(--bs-gray-100);
-    white-space: pre-wrap;
-    opacity: 0.9;
-    z-index: 100;
+    top: 1rem;
+    width: calc(100% - 2rem);
+}
+
+.app-train-box {
+    position: absolute;
+    top: 3.5rem;
+    width: calc(100% - 2rem);
+}
+
+.app-test-box {
+    position: absolute;
+    top: 1rem;
+    width: calc(100% - 2rem);
+}
+
+.app-par-text {
+    width: 8rem;
 }

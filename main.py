@@ -130,9 +130,9 @@ app = DashProxy(__name__, suppress_callback_exceptions=True,
 # ])
 
 app.layout = dbc.Container([
-    dcc.Interval(id='api_update', interval=5000, disabled=True),
-    dcc.Store(id='user_profile', storage_type='session'),
-    dcc.Store(id='logs', storage_type='session'),
+    dcc.Interval(id='api_update', interval=5000, n_intervals=1, disabled=True),
+    dcc.Store(id='user_profile', storage_type='session', data=None),
+    dcc.Store(id='logs', storage_type='session', data=[]),
     dcc.Store(id='max_logs', storage_type='session'),
     dcc.Store(id='current_game_mode', storage_type='session'),
     dcc.Store(id='current_game', storage_type='session'),
@@ -150,7 +150,7 @@ app.layout = dbc.Container([
         children=[
             dbc.Button('Manage Users', id='users_open', className='app-btn', color='primary', disabled=True),
             dbc.Button('Manage Resources', id='files_open', className='app-btn app-r1', color='primary', disabled=True),
-            dbc.Button('Delete User', id='del_user_open', className='app-btn app-r1', disabled=True, color='primary'),
+            dbc.Button('Delete Me', id='del_user_open', className='app-btn app-r1', disabled=True, color='primary'),
             dbc.Button('Log in', id='login_open', className='app-btn app-r1', color='success'),
             dbc.Button('Quit', id='quit', className='app-btn app-r1', color='warning')
         ],
@@ -169,7 +169,7 @@ app.layout = dbc.Container([
         dbc.ModalHeader('registration', close_button=False, id='login_header', className='app-modal-header'),
         dbc.ModalBody(children=[
             dbc.Input(id='login_name', className='app-input-field login-name', type='text', placeholder='User'),
-            dbc.Input(id='login_pwd', className='app-input-field login-pwd', type='password', placeholder='Password')
+            dbc.Input(id='login_pwd', className='app-input-field login-pwd', type='password', placeholder='Password'),
         ], className='app-modal-body'),
         dbc.ModalFooter([
             dbc.Button('Submit', id='login_submit', className='app-btn app-btn-submit', n_clicks=0, color='success'),
@@ -221,28 +221,30 @@ app.layout = dbc.Container([
         dbc.Col(
             dbc.Card([
                 html.Div([
-                    dbc.ModalHeader('Training Parameters', close_button=False, className='app-modal-header'),
+                    dbc.ModalHeader(close_button=False, id='agent_header', className='app-modal-header'),
                     dbc.ModalBody(children=[
-                        'train params'
+                        html.Div([
+                            dbc.RadioItems(('Existing Agent', 'New Agent'), value='Existing Agent',
+                                           inline=True, id='existing_new', className='app-train-radio'),
+                            html.Div([
+                                html.Div(params_line('train', 'agent_ex'), id='existing_visible', hidden=False),
+                                html.Div(params_line('train', 'agent_new'), id='new_visible', hidden=True)]
+                                     + [params_line('train', p) for p in AGENT_TRAIN_LIST
+                                        ], className='app-train-box')
+                        ], id='train_params', hidden=True),
+                        html.Div([
+                            params_line('test', p) for p in AGENT_PARAMS['test']
+                        ], id='test_params', className='app-test-box', hidden=True)
                     ], className='app-modal-body'),
                     dbc.ModalFooter([
-                        dbc.Button('Go!', id='train_btn', className='app-btn app-btn-submit', color='success'),
-                        dbc.Button('Quit', id='train_close', className='app-btn app-r1', color='warning')
+                        dbc.Button('Go!', id='agent_btn', className='app-btn app-btn-submit', color='success'),
+                        dbc.Button('Quit', id='agent_close', className='app-btn app-r1', color='warning')
                     ], className='app-modal-footer')
-                ], id='train', className='app-border', hidden=True),
-                html.Div([
-                    dbc.ModalHeader('Test Parameters', close_button=False, className='app-modal-header'),
-                    dbc.ModalBody(children=[
-                        'test params'
-                    ], className='app-modal-body'),
-                    dbc.ModalFooter([
-                        dbc.Button('Go!', id='test_btn', className='app-btn app-btn-submit', color='success'),
-                        dbc.Button('Quit', id='stat_close', className='app-btn app-r1', color='warning')
-                    ], className='app-modal-footer')
-                ], id='stat', className='app-border', hidden=True),
+                ], id='agent', className='app-border', hidden=True),
                 html.Div('Waiting for action', id='what_agent', className='app-pane-header'),
-                html.Div(id='agent_window', className='agent-window'),
-                html.Div(id='logs_window', className='logs-window'),
+                html.Div(id='agent_window', className='app-agent-window'),
+                html.Div(id='logs_window', className='app-logs-window'),
+                dbc.Button('Clear logs', id='clear_logs', className='app-btn app-clear-logs', color='info'),
             ], className='app-pane align-items-center')
         ),
         dbc.Col(
@@ -324,34 +326,41 @@ for v in buttons_to_confirm:
 
 #  Update User attributes and logs
 @app.callback(
-    Output('user_profile', 'data'), Output('logs', 'data'), Output('alert', 'children'),
-    Input('api_update', 'n_intervals'),
+    Output('user_profile', 'data'), Output('logs', 'data'),
+    Output('login_open', 'children'), Output('alert', 'children'),
+    Input('api_update', 'n_intervals'), Input('clear_logs', 'n_clicks'),
     State('user_profile', 'data'), State('logs', 'data'), State('max_logs', 'data')
 )
-def api_update(n, user, logs, max_logs):
-    if n and user:
-        body = {
-            'name': user['name'],
-            'log_break': len(logs)
-        }
-        resp, content = api_request('POST', 'update', body)
-        if resp == Resp.GOOD:
+def api_update(n1, n2, user, logs, max_logs):
+    ctx = callback_context
+    if not ctx.triggered or not user:
+        raise PreventUpdate
+    action = ctx.triggered[0]['prop_id'].split('.')[0]
+    clear = action == 'clear_logs'
+    name = user['name']
+    body = {
+        'name': name,
+        'log_break': len(logs),
+        'clear_logs': clear
+    }
+    resp, content = api_request('POST', 'update', body)
+    if resp == Resp.GOOD:
+        if clear:
+            new_logs = content['new_logs']
+        else:
             new_logs = (logs + content['new_logs'])[-max_logs:] if content['new_logs'] else NUP
-            return content['profile'], new_logs, NUP
-        elif resp == Resp.BAD:
-            return None, [], general_alert(content)
-        return NUP, NUP, general_alert(content)
-    raise PreventUpdate
+        return content['profile'], new_logs, name, NUP
+    elif resp == Resp.BAD:
+        return None, [], 'Log in', general_alert(content)
+    return NUP, NUP, NUP, general_alert(content)
 
 
 @app.callback(
     Output('logs_window', 'children'),
-    Input('logs', 'data'),
+    Input('logs', 'data')
 )
-def logs_update(logs):
-    if logs:
-        return '\n'.join(logs)
-    return ''
+def update_logs(logs):
+    return '\n'.join(logs)
 
 
 # Login
@@ -371,7 +380,7 @@ def login_submit(n1, n2, n3, name, pwd, profile):
         name, pwd = profile['name'], 'x'
     if not name or not pwd:
         return NUP, NUP, NUP, NUP, general_alert('Name and Password should be filled'), NUP, NUP, NUP
-    if not re.match("^[\w\d_]+$", name):
+    if is_bad_name(name):
         return NUP, NUP, NUP, NUP, general_alert('Name should only contain literals, numbers and "_" symbol'), \
                NUP, NUP, NUP
     body = {
@@ -394,14 +403,38 @@ def login_submit(n1, n2, n3, name, pwd, profile):
 
 
 @app.callback(
-    [Output('api_update', 'disabled')] +
+    [Output('train_p_n', 'options'), Output('train_p_agent_ex', 'options'),
+     Output('agent_window', 'children'), Output('what_agent', 'children'), Output('api_update', 'disabled')] +
     [Output(f'{v}_open', 'disabled') for v in mode_list],
     Input('user_profile', 'data')
 )
 def display_name(user):
     if user:
-        return [False] * len(mode_list) + [user['status'] != 'admin']
-    return [True] * (len(mode_list) + 1)
+        opts = [2, 3, 4, 5, 6] if user['status'] == 'admin' else [2, 3, 4]
+        job = user['current_job']
+        if job is None:
+            description = None
+            header = 'waiting for action'
+        else:
+            mode = job['mode']
+            header = mode_names[mode]
+            if mode == 'train':
+                description = f"Agent = {job['agent']}, Training parameters:\n" \
+                              f"Size of mini-states: N = {job['n']}\n" \
+                              f"Starting learning rate: Alpha = {job['alpha']}\n" \
+                              f"Alpha decay rate: Decay = {job['decay']}\n" \
+                              f"Decay step in episodes: Step = {job['step']}\n" \
+                              f"Mimimum Alpha value: Min_alpha = {job['min_alpha']}\n" \
+                              f"Training for number of: Episodes = {job['episodes']}"
+            else:
+                description = f"Agent = {job['agent']}, Testing parameters:\n" \
+                              f"Size of mini-states: Depth = {job['depth']}\n" \
+                              f"Starting learning rate: Width = {job['width']}\n" \
+                              f"Alpha decay rate: Trigger = {job['trigger']}\n" \
+                              f"Training for number of: Episodes = {job['episodes']}"
+        return [opt_list(opts), opt_list(user['Agents']), description, header] \
+            + [False] * len(mode_list) + [user['status'] != 'admin']
+    return [NUP, [], None, 'waiting for action'] + [True] * (len(mode_list) + 1)
 
 
 @app.callback(
@@ -494,30 +527,32 @@ def manage_users(n, name, options):
 
 # Manage files
 @app.callback(
-    Output('files_name', 'options'), Output('alert', 'children'),
+    Output('files_name', 'options'), Output('alert', 'children'), Output('files_download', 'disabled'),
     Input('files_kind', 'value'),
     State('user_profile', 'data')
 )
 def files_options(kind, user):
     if kind and user:
+        disable = kind == 'Jobs'
         if user['status'] == 'admin':
             body = {
                 'kind': kind
             }
             resp, content = api_request('POST', 'all_items', body)
             if resp == Resp.GOOD:
-                return opt_list(content), NUP
-            return NUP, general_alert(content)
-        return opt_list(user[kind]), NUP
-    return [], NUP
+                return opt_list(content), NUP, disable
+            return NUP, general_alert(content), disable
+        return opt_list(user[kind]), NUP, disable
+    return [], NUP, NUP
 
 
 @app.callback(
-    Output('download', 'data'), Output('alert', 'children'), Output('user_profile', 'data'),
+    Output('download', 'data'), Output('alert', 'children'), Output('api_update', 'n_intervals'),
     Input('files_download', 'n_clicks'), Input('files_delete', 'n_clicks'),
-    State('files_kind', 'value'), State('files_name', 'value'), State('user_profile', 'data')
+    State('files_kind', 'value'), State('files_name', 'value'),
+    State('user_profile', 'data'), State('api_update', 'n_intervals')
 )
-def manage_files(n1, n2, kind, name, user):
+def manage_files(n1, n2, kind, name, interval):
     ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
@@ -532,9 +567,7 @@ def manage_files(n1, n2, kind, name, user):
     resp, content = api_request('POST', 'file', body)
     if resp == Resp.GOOD:
         if action == 'delete':
-            if name in user[kind]:
-                user[kind].remove(name)
-            return NUP, general_alert(f'{name} was successfully deleted', good=True), user
+            return NUP, general_alert(f'{name} was successfully deleted from {kind}', good=True), interval + 1
         status, to_send = download_from_url(content)
         if status == Resp.GOOD:
             return to_send, NUP, NUP
@@ -680,9 +713,9 @@ def restart_play(n, mode, name):
 
 # Agent pane
 @app.callback(
-    Output('current_agent_mode', 'data'), Output('what_agent', 'children'),
-    Output('stat', 'hidden'), Output('train', 'hidden'),
-    Input('train_open', 'n_clicks'), Input('stat_open', 'n_clicks')
+    Output('current_agent_mode', 'data'), Output('agent_header', 'children'),
+    Output('agent', 'hidden'), Output('train_params', 'hidden'), Output('test_params', 'hidden'),
+    Input('train_open', 'n_clicks'), Input('test_open', 'n_clicks')
 )
 def get_agent_params(*args):
     ctx = callback_context
@@ -691,66 +724,86 @@ def get_agent_params(*args):
     mode = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[0]
     match mode:
         case 'train':
-            return mode, mode_names[mode], True, False,
-        case 'stat':
-            return mode, mode_names[mode], False, True
+            return mode, 'training parameters', False, False, True
+        case 'test':
+            return mode, 'testing parameters', False, True, False
 
 
 @app.callback(
-    Output('stat', 'hidden'), Output('user_profile', 'data'), Output('alert', 'children'),
-    Input('test_btn', 'n_clicks'),
+    [Output('existing_visible', 'hidden'), Output('new_visible', 'hidden'), Output('train_p_agent_ex', 'options')]
+    + [Output(f'train_p_{v}', 'value') for v in AGENT_PARAMS['train']]
+    + [Output(f'train_p_{v}', 'disabled') for v in AGENT_TRAIN_LIST],
+    Input('existing_new', 'value'),
     State('user_profile', 'data')
 )
-def test_agent(n, user):
-    if n:
-        if user['working'] is not None and user['status'] != 'admin':
-            return True, NUP, general_alert(f'You are already running: {user["working"]}')
-        name = user['name']
-        idx = f'{name}:test:{time_suffix()}'
-        body = {
-            'task': 'test',
-            'params': {
-                'p': random.randrange(3, 8),
-                'name': name,
-                'idx': idx,
-            }
-        }
-        resp, content = api_request('POST', 'slow', body)
-        if resp == Resp.GOOD:
-            user['working'] = idx
-            return True, user, NUP
-        else:
-            return NUP, NUP, general_alert(content)
+def toggle_training(mode, user):
+    if not user:
+        raise PreventUpdate
+    if mode == 'Existing Agent':
+        return [False, True, opt_list(user['Agents'])] \
+            + [None for _ in AGENT_PARAMS['train']] \
+            + [(False if v in ('min_alpha', 'episodes') else True) for v in AGENT_TRAIN_LIST]
+    return [True, False, NUP] + [None, None]\
+        + [AGENT_TRAIN_DEF[v] for v in AGENT_TRAIN_LIST] \
+        + [False for _ in AGENT_TRAIN_LIST]
+
+
+@app.callback(
+    [Output(f'train_p_{v}', 'value') for v in AGENT_TRAIN_LIST],
+    Input('train_p_agent_ex', 'value'),
+    State('user_profile', 'data')
+)
+def toggle_training(agent, user):
+    if agent:
+        agent_params = user['Agents'][agent]
+        return [agent_params[v] for v in AGENT_TRAIN_LIST[:-1]] + [AGENT_TRAIN_DEF['episodes']]
     raise PreventUpdate
 
 
 @app.callback(
-    Output('train', 'hidden'), Output('user_profile', 'data'), Output('alert', 'children'),
-    Input('train_btn', 'n_clicks'),
-    State('user_profile', 'data')
+    Output('agent', 'hidden'), Output('alert', 'children'), Output('api_update', 'n_intervals'),
+    Input('agent_btn', 'n_clicks'),
+    [State('current_agent_mode', 'data'), State('user_profile', 'data'),
+     State('existing_new', 'value'), State('api_update', 'n_intervals') ]
+    + [State(f'train_p_{v}', 'value') for v in AGENT_PARAMS['train']]
+    + [State(f'test_p_{v}', 'value') for v in AGENT_PARAMS['test']]
 )
-def train_agent(n, user):
-    if n:
-        if user['working'] is not None and user['status'] != 'admin':
-            return True, NUP, general_alert(f'You are already running: {user["working"]}')
-        name = user['name']
-        idx = f'{name}:train:{time_suffix()}'
-        body = {
-            'task': 'train',
-            'params': {
-                'p': random.randrange(3, 8),
-                'name': name,
-                'idx': idx,
-            }
-        }
-        resp, content = api_request('POST', 'slow', body)
-        if resp == Resp.GOOD:
-            user['working'] = idx
-            return True, user, NUP
-        else:
-            return NUP, NUP, general_alert(content)
-    raise PreventUpdate
-
+def train_test_agent(*args):
+    if not args[0]:
+        raise PreventUpdate
+    states = {v['id']: v['value'] for v in callback_context.states_list}
+    pprint(states)
+    user = states['user_profile']
+    running = len(user['Jobs'])
+    if running >= MAX_JOBS[user['status']]:
+        return NUP, NUP, general_alert(f"You've already scheduled {running} jobs, at limit")
+    mode = states['current_agent_mode']
+    is_new = states['existing_new'] == 'New Agent'
+    if mode == 'train':
+        agent = states['train_p_agent_new'] if is_new else states['train_p_agent_ex']
+        params = {core_id(v): states[v] for v in states if core_id(v) in AGENT_TRAIN_LIST}
+    else:
+        agent = states['test_p_agent']
+        params = {core_id(v): states[v] for v in states if core_id(v) in AGENT_TEST_LIST}
+    if None in params.values():
+        return NUP, NUP, general_alert('Some parameters are missing or invalid')
+    if is_bad_name(agent):
+        return NUP, NUP, general_alert('Agent name should only contain literals, numbers and "_" symbol')
+    name = user['name']
+    idx = f'{name}:{mode}:{agent}:{time_suffix()}'
+    body = {
+        'idx': idx,
+        'status': 1,
+        'name': name,
+        'mode': mode,
+        'new': is_new,
+        'agent': {'idx': agent, **params}
+    }
+    resp, content = api_request('POST', 'slow', body)
+    if resp == Resp.GOOD:
+        return True, general_alert(content), states['api_update'] + 1
+    else:
+        return NUP, general_alert(content), NUP
 
 
 # @app.callback(

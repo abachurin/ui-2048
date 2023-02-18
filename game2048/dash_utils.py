@@ -12,9 +12,9 @@ from .game_mechanics import *
 navbar_logo = './assets/favicon.ico'
 navbar_title = 'Robot 2048'
 
-modals_draggable = ['login', 'files', 'users', 'train', 'stat', 'game_option']
+modals_draggable = ['login', 'files', 'users', 'agent', 'game_option']
 modals_open_close = ['login', 'files', 'users']
-modals_just_close = ['train', 'stat', 'game_option']
+modals_just_close = ['agent', 'game_option']
 buttons_to_confirm = {
     'del_user_open': 'confirm_delete',
     'users_delete': 'confirm_user_delete'
@@ -23,7 +23,7 @@ buttons_to_confirm = {
 mode_names = {
     'guide': 'HELP!',
     'train': 'Train Agent',
-    'stat': 'Collect Agent Statistics',
+    'test': 'Collect Agent Statistics',
     'watch': 'Watch Agent Play',
     'replay': 'Replay Game',
     'play': 'Play Yourself'
@@ -40,16 +40,51 @@ self_play_instruction = 'When two equal tiles collide, they combine to make one 
                         'The objective is to reach highest possible score before the board fills up.\n' \
                         '-----------------------------------------\nUse buttons below or keyboard. Good luck!'
 
-# params_list = ['name', 'n', 'alpha', 'decay', 'decay_step', 'low_alpha_limit', 'Training episodes']
-# params_dict = {
-#     'name': {'element': 'input', 'type': 'text', 'value': 'test_agent', 'disable': False},
-#     'n': {'element': 'select', 'value': 4, 'options': [2, 3, 4, 5, 6], 'disable': True},
-#     'alpha': {'element': 'input', 'type': 'number', 'value': 0.25, 'step': 0.0001, 'disable': False},
-#     'decay': {'element': 'input', 'type': 'number', 'value': 0.75, 'step': 0.01, 'disable': False},
-#     'decay_step': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000, 'disable': False},
-#     'low_alpha_limit': {'element': 'input', 'type': 'number', 'value': 0.01, 'step': 0.0001, 'disable': False},
-#     'Training episodes': {'element': 'input', 'type': 'number', 'value': 100000, 'step': 1000, 'disable': False},
-# }
+AGENT_PARAMS = {
+    'train': {
+        'agent_ex': {'element': 'select', 'value': None, 'options': []},
+        'agent_new': {'element': 'input', 'type': 'text', 'value': None},
+        'n': {'element': 'select', 'value': 4, 'options': [2, 3, 4, 5, 6], 'disabled': True},
+        'alpha': {'element': 'input', 'type': 'number', 'value': 0.25, 'step': 0.0001, 'disabled': True},
+        'decay': {'element': 'input', 'type': 'number', 'value': 0.75, 'step': 0.01, 'disabled': True},
+        'step': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000, 'disabled': True},
+        'min_alpha': {'element': 'input', 'type': 'number', 'value': 0.01, 'step': 0.0001},
+        'episodes': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000, 'max': 100000},
+    },
+    'test': {
+        'agent': {'element': 'select', 'value': None, 'options': []},
+        'depth': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 4},
+        'width': {'element': 'input', 'type': 'number', 'value': 1, 'step': 1, 'min': 1, 'max': 4},
+        'trigger': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 8},
+        'episodes': {'element': 'input', 'type': 'number', 'value': 100, 'step': 100, 'min': 100, 'max': 1000}
+    }
+}
+AGENT_TRAIN_LIST = list(AGENT_PARAMS['train'])[2:]
+AGENT_TRAIN_DEF = {v: AGENT_PARAMS['train'][v]['value'] for v in AGENT_TRAIN_LIST}
+AGENT_TEST_LIST = list(AGENT_PARAMS['train'])[1:]
+
+
+def core_id(v):
+    return v[v.find('p') + 2:]
+
+
+def opt_list(values):
+    return [{'label': v, 'value': v} for v in values]
+
+
+def params_line(mode, p):
+    data = AGENT_PARAMS[mode][p]
+    element = data['element']
+    del data['element']
+    header = 'Agent' if 'agent' in p else p[0].upper() + p[1:]
+    data['id'] = f'{mode}_p_{p}'
+    data['className'] = 'no-border'
+    if mode == 'train':
+        data['value'] = None
+    if 'options' in data:
+        data['options'] = opt_list(data['options'])
+    choice_div = dbc.Input(**data) if element == 'input' else dbc.Select(**data)
+    return dbc.InputGroup([dbc.InputGroupText(header, className='app-par-text'), choice_div], style={'margin': '0.1rem'})
 
 
 def download_from_url(url: str):
@@ -77,12 +112,18 @@ def general_alert(text, good=False):
     return [dbc.Alert(text, dismissable=True, fade=True, color=color, duration=duration)]
 
 
-def opt_list(values):
-    return [{'label': v, 'value': v} for v in values]
+def is_bad_name(s):
+    return s is None or not re.match("^[\w\d_]+$", s)
+
+
+def display_agent_window(params):
+    return [
+        html.Div(f'Working: {params["idx"]}')
+    ]
 
 
 def while_loading(idx, top):
-    return dcc.Loading(id=idx, type='cube', color='#77b300', className='loader', style={'top': f'{top}rem'})
+    return dcc.Loading(id=idx, type='cube', color='var(--bs-blue)', className='loader', style={'top': f'{top}rem'})
 
 
 cell_size = 7
@@ -109,32 +150,3 @@ def display_game(game):
 
 EMPTY_GAME = GAME.empty_game()
 EMPTY_BOARD = display_game(EMPTY_GAME)
-
-
-
-# def dash_send(name):
-#     temp, _ = temp_local_name(name)
-#     s3_bucket.download_file(name, temp)
-#     to_send = dcc.send_file(temp)
-#     os.remove(temp)
-#     return to_send
-#
-
-# def params_line(e):
-#     data = params_dict[e]
-#     if data['element'] == 'input':
-#         if 'step' in data:
-#             return dbc.InputGroup([
-#                 dbc.InputGroupText(e, className='par-input-text no-border'),
-#                 dbc.Input(id=f'par_{e}', type=data['type'], step=data['step'],
-#                           className='par-input-field no-border')], className='no-border')
-#         else:
-#             return dbc.InputGroup([
-#                 dbc.InputGroupText(e, className='par-input-text no-border'),
-#                 dbc.Input(id=f'par_{e}', type=data['type'],
-#                           className='par-input-field no-border')], className='no-border')
-#     else:
-#         return dbc.InputGroup([
-#             dbc.InputGroupText(e, className='par-input-text no-border'),
-#             dbc.Select(id=f'par_{e}', options=opt_list(data['options']),
-#                        className='par-select-field no-border')], className='no-border')
