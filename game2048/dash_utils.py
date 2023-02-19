@@ -84,7 +84,33 @@ def params_line(mode, p):
     if 'options' in data:
         data['options'] = opt_list(data['options'])
     choice_div = dbc.Input(**data) if element == 'input' else dbc.Select(**data)
-    return dbc.InputGroup([dbc.InputGroupText(header, className='app-par-text'), choice_div], style={'margin': '0.1rem'})
+    return dbc.InputGroup([dbc.InputGroupText(header, className='app-par-text'), choice_div],
+                          style={'margin': '0.1rem'})
+
+
+def job_description(job):
+    mode = job['mode']
+    job_params = job['agent']
+    description = f"{job_params['idx']}\n"
+    if mode == 'train':
+        description += '\n'.join([str(job_params[v]) for v in AGENT_TRAIN_LIST]) + '\n' + job_params['launch']
+        header = f"AGENT:\n" \
+                 f"Signature:\n"\
+                 f"Initial LR:\n"\
+                 f"LR decay rate:\n"\
+                 f"Decay frequency:\n"\
+                 f"Min LR:\n"\
+                 f"Episodes:\n" \
+                 f"Launch:"
+    else:
+        description += '\n'.join([str(job_params[v]) for v in AGENT_TEST_LIST]) + '\n' + job_params['launch']
+        header = f"AGENT NAME =\n"\
+                 f"look ahead:\n"\
+                 f"Branching:\n"\
+                 f"Empty cells:\n"\
+                 f"Episodes:\n"\
+                 f"Launch:"
+    return header, description
 
 
 def download_from_url(url: str):

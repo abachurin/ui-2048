@@ -11,7 +11,7 @@ LOCAL = os.environ.get('S3_URL', 'local') == 'local'
 BACK_URL = 'http://localhost:5000' if LOCAL else 'http://api:5000'
 
 FIELDS = ('Agents', 'Games', 'Jobs')
-MAX_JOBS = {'guest': 3, 'admin': 10}
+MAX_JOBS = {'guest': 4, 'admin': 10}
 
 
 class Resp(Enum):
@@ -38,3 +38,7 @@ def api_request(kind, suffix, body):
 
 def time_suffix():
     return str(datetime.now())[-6:]
+
+
+def time_now():
+    return str(datetime.now())[:19]

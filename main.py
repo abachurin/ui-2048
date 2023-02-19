@@ -15,119 +15,6 @@ for i in (1, 2, 3, 4):
 app = DashProxy(__name__, suppress_callback_exceptions=True,
                 transforms=[MultiplexerTransform()], title='RL Agent 2048', update_title=None,
                 meta_tags=[{'name': 'viewport', 'content': 'width=device-width, initial-scale=1'}])
-#
-# app.layout = dbc.Container([
-#     dcc.Store(id='idx', storage_type='session'),
-#     dcc.Interval(id='vc', interval=dash_intervals['vc']),
-#     dcc.Interval(id='refresh_status', interval=dash_intervals['refresh']),
-#     dcc.Store(id='session_tags', storage_type='session'),
-#     dcc.Interval(id='initiate_logs', interval=dash_intervals['initiate_logs'], n_intervals=0),
-#     dcc.Store(id='log_file', data=None, storage_type='session'),
-#     dcc.Store(id='running_now', storage_type='session'),
-#     dcc.Download(id='download_file'),
-#     EventListener(id='keyboard'),
-#     dcc.Store(id='current_process', storage_type='session'),
-#     dcc.Store(id='agent_for_chart', storage_type='session'),
-#     dcc.Interval(id='update_interval', n_intervals=0, disabled=True),
-#     dcc.Interval(id='logs_interval', interval=dash_intervals['logs'], n_intervals=0),
-#     dbc.Modal([
-#         dbc.ModalHeader([
-#             dbc.ButtonGroup([dbc.Button('User interface guide', id='guide_ui_button', color='info'),
-#                              dbc.Button('RL project description', id='guide_project_button')])]),
-#         dbc.ModalBody(id='guide_page_body')], id='guide_page', c, contentClassName='guide-page'),
-#     dbc.Modal([
-#         while_loading('uploading', 25),
-#         dbc.ModalHeader('File Management'),
-#         dbc.ModalBody([
-#             dbc.DropdownMenu(id='choose_file_action', label='Action:',
-#                              children=[dbc.DropdownMenuItem(act_list[v], id=v, n_clicks=0) for v in act_list]),
-#             dbc.Select(id='choose_file', className='choose-file'),
-#             dbc.Button('action?', id='admin_go', n_clicks=0, className='admin-go'),
-#             dcc.Upload('Drag and Drop or Select Files', id='data_uploader', style={'display': 'none'},
-#                        className='upload-file')
-#         ], className='admin-page-body'),
-#         dbc.ModalFooter([
-#             html.Div(id='admin_notification'),
-#             dbc.Button('CLOSE', id='close_admin', n_clicks=0)
-#         ])
-#     ], id='admin_page', size='lg', centered=True, contentClassName='admin-page'),
-#     dbc.Modal([
-#         while_loading('fill_loading', 125),
-#         while_loading('loading', 125),
-#         dbc.ModalHeader('Enter/adjust/confirm parameters for an Agent'),
-#         dbc.ModalBody([params_line(e) for e in params_list], className='params-page-body'),
-#         dbc.ModalFooter([
-#             dbc.Button('TRAIN', id='start_training', n_clicks=0, className='start-training'),
-#             html.Div(id='params_notification'),
-#             dbc.Button('CLOSE', id='close_params', n_clicks=0)
-#         ])
-#     ], id='params_page', size='lg', centered=True, contentClassName='params-page'),
-#     dbc.Modal([
-#         while_loading('chart_loading', 0),
-#         dbc.ModalHeader(id='chart_header'),
-#         dbc.ModalBody(id='chart'),
-#         dbc.ModalFooter(dbc.Button('CLOSE', id='close_chart', n_clicks=0))
-#     ], id='chart_page', size='xl', centered=True, contentClassName='chart-page'),
-#     dbc.Row(html.H4(['Reinforcement Learning 2048 Agent ',
-#                      dcc.Link('\u00A9abachurin', href='https://www.abachurin.com', target='blank')],
-#                     className='card-header my-header')),
-#     dbc.Row([
-#         dbc.Col(dbc.Card([
-#             html.H6('Choose:', id='mode_text', className='mode-text'),
-#             dbc.DropdownMenu(id='mode_menu', label='MODE ?', color='success', className='mode-choose', disabled=True,
-#                              children=[dbc.DropdownMenuItem(mode_list[v][0], id=v, n_clicks=0, disabled=False)
-#                                        for v in mode_list]),
-#             dbc.Button(id='chart_button', className='chart-button', style={'display': 'none'}),
-#             dbc.InputGroup([
-#                 dbc.InputGroupText('Game:', className='input-text'),
-#                 dbc.Select(id='choose_for_replay', className='input-field'),
-#                 html.A(dbc.Button('REPLAY', id='replay_game_button', disabled=True, className='replay-game'),
-#                        href='#gauge_group'),
-#                 ], id='input_group_game', style={'display': 'none'}, className='my-input-group',
-#             ),
-#             dbc.InputGroup([
-#                 while_loading('test_loading', 225),
-#                 while_loading('agent_play_loading', 225),
-#                 dbc.InputGroupText('Agent:', className='input-text'),
-#                 dbc.Select(id='choose_stored_agent', className='input-field'),
-#                 html.Div([
-#                     dbc.InputGroupText('depth:', className='lf-cell lf-text lf-depth'),
-#                     dbc.Input(id='choose_depth', type='number', min=0, max=4, value=0,
-#                               className='lf-cell lf-field lf-depth'),
-#                     dbc.InputGroupText('width:', className='lf-cell lf-text lf-width'),
-#                     dbc.Input(id='choose_width', type='number', min=1, max=4, value=1,
-#                               className='lf-cell lf-field lf-width'),
-#                     dbc.InputGroupText('empty:', className='lf-cell lf-text lf-empty'),
-#                     dbc.Input(id='choose_since_empty', type='number', min=0, max=8, value=6,
-#                               className='lf-cell lf-field lf-empty'),
-#                 ], className='lf-params'),
-#                 dbc.Button('LAUNCH!', id='replay_agent_button', disabled=True, className='launch-game'),
-#                 html.Div([
-#                     dbc.InputGroupText('N:', className='num-eps-text'),
-#                     dbc.Input(id='choose_num_eps', type='number', min=1, value=100, step=1, className='num-eps-field')
-#                     ], id='num_eps', style={'display': 'none'}, className='num-eps')
-#                 ], id='input_group_agent', style={'display': 'none'}, className='my-input-group',
-#             ),
-#             dbc.InputGroup([
-#                 dbc.InputGroupText('Agent:', className='input-text'),
-#                 dbc.Select(id='choose_train_agent', className='input-field'),
-#                 dbc.InputGroupText('Config:', className='input-text config-text'),
-#                 dbc.Select(id='choose_config', disabled=True, className='input-field config-input'),
-#                 dbc.Button('Confirm parameters', id='go_to_params', disabled=True, className='go-to-params'),
-#                 ], id='input_group_train', style={'display': 'none'}, className='my-input-group',
-#             ),
-#             html.Div([
-#                     html.H6('Logs', className='logs-header card-header'),
-#                     dbc.Button('Stop', id='stop_agent', n_clicks=0, className='logs-button stop-agent',
-#                                style={'display': 'none'}),
-#                     dbc.Button('Download', id='download_logs', n_clicks=0, className='logs-button logs-download'),
-#                     dbc.Button('Clear', id='clear_logs', n_clicks=0, className='logs-button logs-clear'),
-#                     html.Div(id='logs_display', className='logs-display'),
-#                     html.Div(id='log_footer', className='card-footer log-footer')
-#                 ], className='logs-window'),
-#             ], className='log-box'),
-#         )
-# ])
 
 app.layout = dbc.Container([
     dcc.Interval(id='api_update', interval=5000, n_intervals=1, disabled=True),
@@ -242,7 +129,14 @@ app.layout = dbc.Container([
                     ], className='app-modal-footer')
                 ], id='agent', className='app-border', hidden=True),
                 html.Div('Waiting for action', id='what_agent', className='app-pane-header'),
-                html.Div(id='agent_window', className='app-agent-window'),
+                dbc.Row([
+                    dbc.Col(html.Div(id='current_job_headers')),
+                    dbc.Col(html.Div(id='current_job_values', className='app-job-values'), className='app-col-values'),
+                    dbc.Col([
+                        dbc.Button('Stop', id='stop_job', className='app-btn app-stop-job', color='info'),
+                        dbc.Button('Kill', id='kill_job', className='app-btn app-kill-job', color='warning'),
+                    ])
+                ], className='app-agent-window'),
                 html.Div(id='logs_window', className='app-logs-window'),
                 dbc.Button('Clear logs', id='clear_logs', className='app-btn app-clear-logs', color='info'),
             ], className='app-pane align-items-center')
@@ -404,37 +298,25 @@ def login_submit(n1, n2, n3, name, pwd, profile):
 
 @app.callback(
     [Output('train_p_n', 'options'), Output('train_p_agent_ex', 'options'),
-     Output('agent_window', 'children'), Output('what_agent', 'children'), Output('api_update', 'disabled')] +
+     Output('current_job_headers', 'children'), Output('current_job_values', 'children'),
+     Output('what_agent', 'children'), Output('api_update', 'disabled')] +
     [Output(f'{v}_open', 'disabled') for v in mode_list],
     Input('user_profile', 'data')
 )
 def display_name(user):
     if user:
         opts = [2, 3, 4, 5, 6] if user['status'] == 'admin' else [2, 3, 4]
-        job = user['current_job']
-        if job is None:
-            description = None
+        if not user['Jobs']:
             header = 'waiting for action'
+            des_headers, des_values = None, None
         else:
+            job = user['Jobs'][0]
             mode = job['mode']
-            header = mode_names[mode]
-            if mode == 'train':
-                description = f"Agent = {job['agent']}, Training parameters:\n" \
-                              f"Size of mini-states: N = {job['n']}\n" \
-                              f"Starting learning rate: Alpha = {job['alpha']}\n" \
-                              f"Alpha decay rate: Decay = {job['decay']}\n" \
-                              f"Decay step in episodes: Step = {job['step']}\n" \
-                              f"Mimimum Alpha value: Min_alpha = {job['min_alpha']}\n" \
-                              f"Training for number of: Episodes = {job['episodes']}"
-            else:
-                description = f"Agent = {job['agent']}, Testing parameters:\n" \
-                              f"Size of mini-states: Depth = {job['depth']}\n" \
-                              f"Starting learning rate: Width = {job['width']}\n" \
-                              f"Alpha decay rate: Trigger = {job['trigger']}\n" \
-                              f"Training for number of: Episodes = {job['episodes']}"
-        return [opt_list(opts), opt_list(user['Agents']), description, header] \
+            header = f'currently working: {mode_names[mode]}'
+            des_headers, des_values = job_description(job)
+        return [opt_list(opts), opt_list(user['Agents']), des_headers, des_values, header] \
             + [False] * len(mode_list) + [user['status'] != 'admin']
-    return [NUP, [], None, 'waiting for action'] + [True] * (len(mode_list) + 1)
+    return [NUP, [], None, None, 'waiting for action'] + [True] * (len(mode_list) + 1)
 
 
 @app.callback(
@@ -550,29 +432,29 @@ def files_options(kind, user):
     Output('download', 'data'), Output('alert', 'children'), Output('api_update', 'n_intervals'),
     Input('files_download', 'n_clicks'), Input('files_delete', 'n_clicks'),
     State('files_kind', 'value'), State('files_name', 'value'),
-    State('user_profile', 'data'), State('api_update', 'n_intervals')
+    State('api_update', 'n_intervals')
 )
-def manage_files(n1, n2, kind, name, interval):
+def manage_files(n1, n2, kind, idx, interval):
     ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
     action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
-    if kind is None or name is None:
+    if kind is None or idx is None:
         return NUP, general_alert(f'Choose a file to {action}'), NUP
     body = {
         'kind': kind,
-        'name': name,
+        'idx': idx,
         'action': action
     }
     resp, content = api_request('POST', 'file', body)
     if resp == Resp.GOOD:
         if action == 'delete':
-            return NUP, general_alert(f'{name} was successfully deleted from {kind}', good=True), interval + 1
+            return NUP, general_alert(f'{idx} was successfully deleted from {kind}', good=True), interval + 1
         status, to_send = download_from_url(content)
         if status == Resp.GOOD:
             return to_send, NUP, NUP
         return NUP, general_alert(status), NUP
-    return NUP, general_alert(resp), NUP
+    return NUP, general_alert(content), NUP
 
 
 # Guide
@@ -761,7 +643,7 @@ def toggle_training(agent, user):
 
 
 @app.callback(
-    Output('agent', 'hidden'), Output('alert', 'children'), Output('api_update', 'n_intervals'),
+    Output('agent', 'hidden'), Output('api_update', 'n_intervals'), Output('alert', 'children'),
     Input('agent_btn', 'n_clicks'),
     [State('current_agent_mode', 'data'), State('user_profile', 'data'),
      State('existing_new', 'value'), State('api_update', 'n_intervals') ]
@@ -772,11 +654,11 @@ def train_test_agent(*args):
     if not args[0]:
         raise PreventUpdate
     states = {v['id']: v['value'] for v in callback_context.states_list}
-    pprint(states)
     user = states['user_profile']
     running = len(user['Jobs'])
-    if running >= MAX_JOBS[user['status']]:
-        return NUP, NUP, general_alert(f"You've already scheduled {running} jobs, at limit")
+    status = user['status']
+    if running >= MAX_JOBS[status]:
+        return NUP, NUP, general_alert(f"You've already scheduled {running} jobs, at limit for '{status}'")
     mode = states['current_agent_mode']
     is_new = states['existing_new'] == 'New Agent'
     if mode == 'train':
@@ -785,7 +667,7 @@ def train_test_agent(*args):
     else:
         agent = states['test_p_agent']
         params = {core_id(v): states[v] for v in states if core_id(v) in AGENT_TEST_LIST}
-    if None in params.values():
+    if agent is None or None in params.values():
         return NUP, NUP, general_alert('Some parameters are missing or invalid')
     if is_bad_name(agent):
         return NUP, NUP, general_alert('Agent name should only contain literals, numbers and "_" symbol')
@@ -794,6 +676,7 @@ def train_test_agent(*args):
     body = {
         'idx': idx,
         'status': 1,
+        'launch': '',
         'name': name,
         'mode': mode,
         'new': is_new,
@@ -801,9 +684,9 @@ def train_test_agent(*args):
     }
     resp, content = api_request('POST', 'slow', body)
     if resp == Resp.GOOD:
-        return True, general_alert(content), states['api_update'] + 1
+        return True, states['api_update'] + 1, NUP
     else:
-        return NUP, general_alert(content), NUP
+        return NUP, NUP, general_alert(content)
 
 
 # @app.callback(
