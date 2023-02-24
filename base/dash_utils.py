@@ -9,10 +9,20 @@ from dash_extensions import EventListener
 
 from .game_mechanics import *
 
+with open('base/config.json', 'r') as f:
+    config = json.load(f)
+    FIELDS = config['fields']
+    MAX_JOBS = config['max_jobs']
+    SPEED = config['replay_speed']
+    self_play_instruction = config['self_play_instruction']
+    job_description_header = config['job_description_header']
+
+
 navbar_logo = './assets/favicon.ico'
 navbar_title = 'Robot 2048'
 
 modals_draggable = ['login', 'files', 'users', 'agent', 'game_option']
+modals_only_one_open = ['login', 'files', 'users', 'agent', 'game_option']
 modals_open_close = ['login', 'files', 'users']
 modals_just_close = ['agent', 'game_option']
 buttons_to_confirm = {
@@ -28,26 +38,23 @@ mode_names = {
     'replay': 'Replay Game',
     'play': 'Play Yourself'
 }
-mode_list = list(mode_names) + ['files', 'del_user'] + ['users']
+mode_list = list(mode_names) + ['files', 'del_user', 'users']
+mode_names_disabled = ['train', 'test', 'files', 'del_user', 'users']
 keyboard_dict = {
     'Left': 0,
     'Up': 1,
     'Right': 2,
     'Down': 3
 }
-self_play_instruction = 'When two equal tiles collide, they combine to make one tile that displays their sum. ' \
-                        'as the game progresses, the tiles reach higher and the board gets more crowded. ' \
-                        'The objective is to reach highest possible score before the board fills up.\n' \
-                        '-----------------------------------------\nUse buttons below or keyboard. Good luck!'
 
 AGENT_PARAMS = {
     'train': {
         'agent_ex': {'element': 'select', 'value': None, 'options': []},
         'agent_new': {'element': 'input', 'type': 'text', 'value': None},
         'n': {'element': 'select', 'value': 4, 'options': [2, 3, 4, 5, 6], 'disabled': True},
-        'alpha': {'element': 'input', 'type': 'number', 'value': 0.25, 'step': 0.0001, 'disabled': True},
-        'decay': {'element': 'input', 'type': 'number', 'value': 0.75, 'step': 0.01, 'disabled': True},
-        'step': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000, 'disabled': True},
+        'alpha': {'element': 'input', 'type': 'number', 'value': 0.25, 'step': 0.0001},
+        'decay': {'element': 'input', 'type': 'number', 'value': 0.75, 'step': 0.01},
+        'step': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000},
         'min_alpha': {'element': 'input', 'type': 'number', 'value': 0.01, 'step': 0.0001},
         'episodes': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000, 'max': 100000},
     },
@@ -69,7 +76,12 @@ def core_id(v):
 
 
 def opt_list(values):
-    return [{'label': v, 'value': v} for v in values]
+    if not values:
+        return []
+    if isinstance(values[0], dict):
+        return [{'label': v['idx'], 'value': v['idx']} for v in values]
+    else:
+        return [{'label': v, 'value': v} for v in values]
 
 
 def params_line(mode, p):
@@ -88,29 +100,12 @@ def params_line(mode, p):
                           style={'margin': '0.1rem'})
 
 
-def job_description(job):
+def job_description(job: dict):
     mode = job['mode']
-    job_params = job['agent']
-    description = f"{job_params['idx']}\n"
-    if mode == 'train':
-        description += '\n'.join([str(job_params[v]) for v in AGENT_TRAIN_LIST]) + '\n' + job_params['launch']
-        header = f"AGENT:\n" \
-                 f"Signature:\n"\
-                 f"Initial LR:\n"\
-                 f"LR decay rate:\n"\
-                 f"Decay frequency:\n"\
-                 f"Min LR:\n"\
-                 f"Episodes:\n" \
-                 f"Launch:"
-    else:
-        description += '\n'.join([str(job_params[v]) for v in AGENT_TEST_LIST]) + '\n' + job_params['launch']
-        header = f"AGENT NAME =\n"\
-                 f"look ahead:\n"\
-                 f"Branching:\n"\
-                 f"Empty cells:\n"\
-                 f"Episodes:\n"\
-                 f"Launch:"
-    return header, description
+    header = f"{job['agent']}\n"
+    des_list = AGENT_TRAIN_LIST if mode == 'train' else AGENT_TEST_LIST
+    return job_description_header[mode], header + \
+        '\n'.join([str(job[v]) for v in des_list]) + '\n' + job['launch']
 
 
 def download_from_url(url: str):
@@ -130,7 +125,16 @@ def download_from_url(url: str):
         return f'Download failed: {r.status_code}, {r.text}', None
 
 
-def general_alert(text, good=False):
+def download_json(name: str, data: dict):
+    name = f"{name.replace(':', '_')}.json"
+    with open(name, 'w') as f:
+        json.dump(data, f)
+    to_send = dcc.send_file(name)
+    os.remove(name)
+    return to_send
+
+
+def general_alert(text: str, good=False):
     if not text:
         return NUP
     color = 'success' if good else 'warning'
@@ -138,14 +142,8 @@ def general_alert(text, good=False):
     return [dbc.Alert(text, dismissable=True, fade=True, color=color, duration=duration)]
 
 
-def is_bad_name(s):
-    return s is None or not re.match("^[\w\d_]+$", s)
-
-
-def display_agent_window(params):
-    return [
-        html.Div(f'Working: {params["idx"]}')
-    ]
+def is_bad_name(s: str):
+    return (s is None) or (not re.match("^[\w\d_]+$", s)) or (len(s) > 12)
 
 
 def while_loading(idx, top):
@@ -166,9 +164,10 @@ def display_game(game):
         case -1:
             header += ' ... Game over!'
         case _:
-            header += f'Next move = {GAME.actions[move]}'
+            header += f', Next move = {GAME.actions[move].upper()}'
     return dbc.Card(children=[html.Div(header, className='app-game-header')] + [
-            html.Div(GAME.tiles[game['row'][j][i]], className='app-game-cell',
+            html.Div(GAME.tiles[game['row'][j][i]],
+                     className='app-game-cell blink-me' if [j, i] == game['last_tile'] else 'app-game-cell',
                      style={'left': x_position[i], 'top': y_position[j],
                             'background': f'var(--app-color-{game["row"][j][i]})'})
             for j in range(4) for i in range(4)], style={'width': '28rem'})

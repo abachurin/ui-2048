@@ -1,0 +1,16 @@
+{
+    "replay_speed": {
+        "min": 50,
+        "step": 200
+    },
+    "max_jobs": {
+        "guest": 4,
+        "admin": 10
+    },
+    "fields": ["Agents", "Games", "Jobs"],
+    "self_play_instruction": "When two equal tiles collide, they combine to make one tile that displays their sum. As the game progresses, the tiles reach higher and the board gets more crowded. The objective is to reach highest possible score before the board fills up.\n'-----------------------------------------\nUse buttons below or keyboard. Good luck!",
+    "job_description_header": {
+        "train": "AGENT:\nSignature:\nInitial LR:\nLR decay rate:\nDecay frequency:\nMin LR:\nEpisodes:\nLaunch:",
+        "test": "AGENT NAME =\nlook ahead:\nBranching:\nEmpty cells:\nEpisodes:\nLaunch:"
+    }
+}

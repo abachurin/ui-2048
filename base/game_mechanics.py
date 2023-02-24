@@ -7,6 +7,7 @@ class GameLogic:
         'row': '4 x 4 python list of lists',
         'score': 'current score',
         'moves': 'number of moves made so far',
+        'last_tile': 'position of last ramdom tile',
         'next_move': 'None (if self-play mode), 0,1,2,3 if Agent/Game moving there, or -1 if game is over'
     }
 
@@ -23,6 +24,7 @@ class GameLogic:
             'row': [[0] * 4 for _ in range(4)],
             'score': 0,
             'moves': 0,
+            'last_tile': [-1, -1],
             'next_move': None
         }
 
@@ -75,8 +77,16 @@ class GameLogic:
             tile = 1 if random.randrange(10) else 2
             i, j = random.choice(em)
             game['row'][i][j] = tile
+            game['last_tile'] = [i, j]
             if self.game_over(game):
                 game['next_move'] = -1
+
+    def place_tile(self, game, pos_tile):
+        i, j, tile = pos_tile
+        game['row'][i][j] = tile
+        game['last_tile'] = [i, j]
+        if self.game_over(game):
+            game['next_move'] = -1
 
     def _left(self, game):
         change = False
