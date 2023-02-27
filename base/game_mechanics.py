@@ -7,7 +7,7 @@ class GameLogic:
         'row': '4 x 4 python list of lists',
         'score': 'current score',
         'moves': 'number of moves made so far',
-        'last_tile': 'position of last ramdom tile',
+        'last_tile': 'position of last random tile',
         'next_move': 'None (if self-play mode), 0,1,2,3 if Agent/Game moving there, or -1 if game is over'
     }
 

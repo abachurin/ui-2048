@@ -6,6 +6,8 @@ import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 from dash_extensions.enrich import DashProxy, MultiplexerTransform, Output, Input, State
 from dash_extensions import EventListener
+from dash.long_callback import DiskcacheLongCallbackManager
+import diskcache
 
 from .game_mechanics import *
 
@@ -21,10 +23,10 @@ with open('base/config.json', 'r') as f:
 navbar_logo = './assets/favicon.ico'
 navbar_title = 'Robot 2048'
 
-divs_draggable = ['login', 'files', 'users', 'agent', 'game_option', 'chart']
-divs_only_one_open = ['login', 'files', 'users', 'agent', 'game_option']
+divs_draggable = ['login', 'files', 'users', 'agent', 'game', 'chart']
+divs_only_one_open = ['login', 'files', 'users', 'agent', 'game']
 divs_open_close = ['login', 'files', 'users', 'chart']
-divs_just_close = ['agent', 'game_option']
+divs_just_close = ['agent', 'game']
 buttons_to_confirm = {
     'del_user_open': 'confirm_delete',
     'users_delete': 'confirm_user_delete'
@@ -70,6 +72,12 @@ AGENT_PARAMS = {
         'width': {'element': 'input', 'type': 'number', 'value': 1, 'step': 1, 'min': 1, 'max': 4},
         'trigger': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 8},
         'episodes': {'element': 'input', 'type': 'number', 'value': 100, 'step': 100, 'min': 100, 'max': 1000}
+    },
+    'watch': {
+        'agent': {'element': 'select', 'value': None, 'options': []},
+        'depth': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 4},
+        'width': {'element': 'input', 'type': 'number', 'value': 1, 'step': 1, 'min': 1, 'max': 4},
+        'trigger': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 8},
     }
 }
 AGENT_TRAIN_LIST = list(AGENT_PARAMS['train'])[2:]
@@ -88,6 +96,11 @@ def opt_list(values):
         return [{'label': v['idx'], 'value': v['idx']} for v in values]
     else:
         return [{'label': v, 'value': v} for v in values]
+
+
+def agents_extra(agents: list):
+    opts = [v['idx'] for v in agents] + ['Random moves', 'Best score moves']
+    return opt_list(opts)
 
 
 def params_line(mode, p):
@@ -114,7 +127,7 @@ def job_description(job: dict):
         '\n'.join([str(job[v]) for v in des_list]) + '\n' + job['launch_time']
 
 
-def download_from_url(url: str):
+def get_from_url(url: str, mode='to_send'):
     name = url.split('/')[-1].split('?')[0]
     r = requests.get(url, stream=True)
     if r.ok:
@@ -124,9 +137,14 @@ def download_from_url(url: str):
                     f.write(chunk)
                     f.flush()
                     os.fsync(f.fileno())
-        to_send = dcc.send_file(name)
+        if mode == 'to_send':
+            result = dcc.send_file(name)
+        else:
+            # mode = 'local'
+            with open(name, 'rb') as f:
+                result = pickle.load(f)
         os.remove(name)
-        return Resp.GOOD, to_send
+        return Resp.GOOD, result
     else:
         return f'Download failed: {r.status_code}, {r.text}', None
 
@@ -189,10 +207,6 @@ def general_alert(text: str, good=False):
 
 def is_bad_name(s: str):
     return (s is None) or (not re.match("^[\w\d_]+$", s)) or (len(s) > 12) or (s in ('Random', 'Score'))
-
-
-def while_loading(idx, top):
-    return dcc.Loading(id=idx, type='cube', color='var(--bs-blue)', className='loader', style={'top': f'{top}rem'})
 
 
 cell_size = 7

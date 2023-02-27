@@ -5,6 +5,7 @@ import json
 import re
 import os
 import requests
+import pickle
 from enum import Enum
 
 LOCAL = os.environ.get('S3_URL', 'local') == 'local'

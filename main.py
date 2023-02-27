@@ -1,3 +1,5 @@
+import time
+
 from base.dash_utils import *
 
 dash_directory = os.path.dirname(os.path.realpath(__file__))
@@ -11,8 +13,9 @@ for i in (1, 2, 3, 4):
     with open(os.path.join(dash_directory, 'assets', f'project_{i}.md'), 'r') as f:
         guide_history[i] = f.read()
 
-
-app = DashProxy(__name__, suppress_callback_exceptions=True,
+CACHE = diskcache.Cache('./cache')
+BCM = DiskcacheLongCallbackManager(CACHE)
+app = DashProxy(__name__, suppress_callback_exceptions=True, background_callback_manager=BCM,
                 transforms=[MultiplexerTransform()], title='RL Agent 2048', update_title=None,
                 meta_tags=[{'name': 'viewport', 'content': 'width=device-width, initial-scale=1'}])
 
@@ -59,7 +62,7 @@ app.layout = dbc.Container([
         dbc.ModalBody(children=[
             dbc.Input(id='login_name', className='app-input-field login-name', type='text', placeholder='User'),
             dbc.Input(id='login_pwd', className='app-input-field login-pwd', type='password', placeholder='Password'),
-            html.Div('* Need to register for using Agent Train/Test functions', className='app-comment')
+            html.Div('* Need to register to unlock Agent Train/Test functions', className='app-comment')
         ], className='app-modal-body'),
         dbc.ModalFooter([
             dbc.Button('Submit', id='login_submit', className='app-btn app-btn-submit', n_clicks=0, color='success'),
@@ -128,15 +131,14 @@ app.layout = dbc.Container([
                             html.Div([
                                 html.Div(params_line('train', 'agent_ex'), id='existing_visible', hidden=False),
                                 html.Div(params_line('train', 'agent_new'), id='new_visible', hidden=True)]
-                                     + [params_line('train', p) for p in AGENT_TRAIN_LIST
-                                        ], className='app-train-box')
+                                + [params_line('train', p) for p in AGENT_TRAIN_LIST], className='app-train-box')
                         ], id='train_params', hidden=True),
                         html.Div([
-                            params_line('test', p) for p in AGENT_PARAMS['test']
-                        ] + [
+                            html.Div([
+                                params_line('test', p) for p in AGENT_PARAMS['test']], className='app-test-box'),
                             dbc.Button('Training Chart', id='chart_open', className='app-btn app-btn-chart',
                                        color='primary', disabled=True)
-                        ], id='test_params', className='app-test-box', hidden=True)
+                        ], id='test_params', hidden=True)
                     ], className='app-modal-body'),
                     dbc.ModalFooter([
                         dbc.Button('Go!', id='agent_btn', className='app-btn app-btn-submit', color='success'),
@@ -159,22 +161,31 @@ app.layout = dbc.Container([
         ),
         dbc.Col(
             dbc.Card([
-                dbc.Toast(self_play_instruction, header='Game instructions', headerClassName='inst-header',
-                          id='instruction', className='app-border', dismissable=True, is_open=False),
                 html.Div([
-                    dbc.ModalHeader('Choose option', close_button=False, className='app-modal-header'),
+                    dbc.ModalHeader(close_button=False, id='game_header', className='app-modal-header'),
                     dbc.ModalBody(children=[
-                        html.Br(),
-                        dcc.Dropdown(id='game_option_value', clearable=False),
-                        html.Div(dbc.RadioItems(('New game', 'From current position'), value='New game', inline=True,
-                                                id='finish_game', className='app-finish-game'),
-                                 id='finish_game_box', hidden=True)
+                        html.Div([
+                            dbc.RadioItems(('New game', 'From current position'), value='New game',
+                                           inline=True, id='finish_game', className='app-train-radio'),
+                            html.Div([
+                                params_line('watch', p) for p in AGENT_PARAMS['watch']], className='app-watch-box'),
+                        ], id='watch_params', hidden=True),
+                        html.Div([
+                            html.Br(),
+                            dbc.InputGroup([
+                                dbc.InputGroupText('Game', className='app-par-text'),
+                                dbc.Select(id='replay_game', className='no-border')], style={'margin': '0.1rem'})
+                        ], id='replay_params', hidden=True)
                     ], className='app-modal-body'),
                     dbc.ModalFooter([
-                        dbc.Button('Go!', id='go_game', className='app-btn app-btn-submit', color='success'),
-                        dbc.Button('Quit', id='game_option_close', className='app-btn app-r1', color='warning')
+                        dbc.Button('Go!', id='game_go', className='app-btn app-btn-submit', color='success'),
+                        dbc.Button('Quit', id='game_close', className='app-btn', color='warning')
                     ], className='app-modal-footer')
-                ], id='game_option', className='app-border', hidden=True),
+                ], id='game', className='app-border', hidden=True),
+                dcc.Loading(id='loading_progress', type='cube', color='#f0ad4e',
+                            style={'position': 'absolute', 'top': '10rem', 'z-index': '300'}),
+                dbc.Toast(self_play_instruction, header='Game instructions', headerClassName='inst-header',
+                          id='instruction', className='app-border', dismissable=True, is_open=False),
                 html.Div('Waiting for action', id='what_game', className='app-pane-header'),
                 dbc.CardBody(EMPTY_BOARD, id='game_board'),
                 html.Div([
@@ -185,7 +196,10 @@ app.layout = dbc.Container([
                                step=0.1, className='app-speed-slider'),
                     html.Div([
                         dbc.Button('PAUSE', id='pause_game', className='app-btn app-pause-btn', color='info'),
-                        dbc.Button('AGAIN', id='again_game', className='app-btn app-again-btn', color='success'),
+                        dbc.Button('REPLAY', id='again_replay', className='app-btn app-again-btn', color='success',
+                                   style={'visibility': 'hidden'}),
+                        dbc.Button('REPLAY', id='again_watch', className='app-btn app-again-btn', color='success',
+                                   style={'visibility': 'hidden'}),
                         dbc.Button('RESUME', id='resume_game', className='app-btn app-resume-btn'),
                     ], className='app-button-line')
                 ], id='gauge_group', className='app-gauge-group', hidden=False),
@@ -382,22 +396,21 @@ def display_name(user):
 
 
 @app.callback(
-    Output('user_profile', 'data'), Output('logs', 'data'),
+    Output('user_profile', 'data'), Output('logs', 'data'), Output('login_open', 'children'),
     Input('quit', 'n_clicks')
 )
 def login_quit(n):
     if n:
-        return None, []
+        return None, [], 'Log in'
     raise PreventUpdate
 
 
 # Manage users
 @app.callback(
     Output('users_name', 'options'), Output('alert', 'children'),
-    Input('users', 'hidden'),
-    State('user_profile', 'data')
+    Input('users', 'hidden')
 )
-def username_options(hidden, user):
+def username_options(hidden):
     if hidden:
         raise PreventUpdate
     body = {
@@ -405,7 +418,6 @@ def username_options(hidden, user):
     }
     resp, content = api_request('POST', 'all_items', body)
     if resp == Resp.GOOD:
-        content.remove(user['name'])
         return opt_list(content), NUP
     return [], general_alert(content)
 
@@ -526,7 +538,7 @@ def manage_files(n1, n2, n3, kind, idx, user, interval):
     if resp == Resp.GOOD:
         if action == 'delete':
             return NUP, general_alert(f'{idx} was successfully deleted from {kind}', good=True), interval + 1, None
-        status, to_send = download_from_url(content)
+        status, to_send = get_from_url(content)
         if status == Resp.GOOD:
             return to_send, NUP, NUP, NUP
         return NUP, general_alert(status), NUP, NUP
@@ -560,22 +572,20 @@ def guide_body(*args):
             ]
 
 
-# Game Pane and Play yourself
+# Play yourself
 @app.callback(
     Output('current_game_mode', 'data'), Output('gauge_group', 'hidden'), Output('play-yourself-group', 'hidden'),
-    Output('what_game', 'children'),
-    Input('play_open', 'n_clicks'), Input('watch_open', 'n_clicks'), Input('replay_open', 'n_clicks')
+    Output('what_game', 'children'), Output('game', 'hidden'), Output('instruction', 'is_open'),
+    Output('show_instruction', 'data'), Output('move_delay', 'disabled'), Output('current_game', 'data'),
+    Input('play_open', 'n_clicks'),
+    State('show_instruction', 'data'), State('current_game', 'data')
 )
-def play_yourself_start(*args):
-    ctx = callback_context
-    if not ctx.triggered:
-        raise PreventUpdate
-    mode = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[0]
-    match mode:
-        case 'play':
-            return mode, True, False, mode_names[mode]
-        case _:
-            return mode, False, True, mode_names[mode]
+def open_play_yourself(n, show_instruction, game):
+    if n:
+        if game['row'] == EMPTY_GAME['row']:
+            game = GAME.new_game()
+        return 'play', True, False, mode_names['play'], True, show_instruction, 0, True, game
+    raise PreventUpdate
 
 
 @app.callback(
@@ -584,32 +594,6 @@ def play_yourself_start(*args):
 )
 def draw_board(game):
     return display_game(game)
-
-
-@app.callback(
-    Output('instruction', 'is_open'), Output('show_instruction', 'data'), Output('move_delay', 'disabled'),
-    Output('game_option', 'hidden'), Output('game_option_value', 'options'), Output('finish_game_box', 'hidden'),
-    Output('current_game', 'data'), Output('alert', 'children'),
-    Input('current_game_mode', 'data'),
-    State('show_instruction', 'data'), State('current_game', 'data')
-)
-def play_yourself_start(mode, show_instruction, game):
-    match mode:
-        case 'play':
-            if game['row'] == EMPTY_GAME['row']:
-                game = GAME.new_game()
-            return show_instruction, 0, True, True, NUP, NUP, game, NUP
-        case x if x in ('watch', 'replay'):
-            body = {
-                'kind': 'Agents' if mode == 'watch' else 'Games'
-            }
-            resp, content = api_request('POST', 'all_items', body)
-            if resp == Resp.GOOD:
-                return False, NUP, True, False, content, mode == 'replay', NUP, NUP
-            else:
-                return False, NUP, True, True, NUP, NUP, NUP, general_alert(content)
-        case _:
-            return False, NUP, True, True, NUP, NUP, NUP, NUP
 
 
 @app.callback(
@@ -646,37 +630,90 @@ def restart_play(n):
     raise PreventUpdate
 
 
-# Replay Game and Watch Agent
+# Replay Game/ Watch Agent
 @app.callback(
-    Output('go_game', 'disabled'),
-    Input('game_option_value', 'value')
+    Output('current_game_mode', 'data'), Output('what_game', 'children'), Output('game_header', 'children'),
+    Output('game', 'hidden'), Output('watch_params', 'hidden'), Output('replay_params', 'hidden'),
+    Input('watch_open', 'n_clicks'), Input('replay_open', 'n_clicks')
 )
-def enable_go_game(name):
-    return name is None
+def open_replay_watch(*args):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    mode = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[0]
+    if mode == 'watch':
+        return mode, mode_names['play'], 'choose agent', False, False, True
+    return mode, mode_names['play'], 'choose game', False, True, False
 
 
 @app.callback(
-    Output('again_game', 'disabled'),
-    Input('move_delay', 'disabled'),
-    State('current_game_mode', 'data'), State('game_option_value', 'value')
+    Output('watch_p_agent', 'options'), Output('alert', 'children'),
+    Input('watch_params', 'hidden')
 )
-def enable_again(pause, mode, name):
-    return not (mode in ('replay', 'watch') and pause and name)
+def get_watch_options(hidden):
+    if hidden:
+        raise PreventUpdate
+    body = {
+        'kind': 'Agents'
+    }
+    resp, content = api_request('POST', 'all_items', body)
+    if resp == Resp.GOOD:
+        return agents_extra(content), NUP
+    return [], general_alert(content)
+
+
+@app.callback(
+    Output('replay_game', 'options'), Output('alert', 'children'),
+    Input('replay_params', 'hidden')
+)
+def get_replay_options(hidden):
+    if hidden:
+        raise PreventUpdate
+    body = {
+        'kind': 'Games'
+    }
+    resp, content = api_request('POST', 'all_items', body)
+    if resp == Resp.GOOD:
+        return opt_list(content), NUP
+    return [], general_alert(content)
+
+
+@app.callback(
+    Output('current_game_mode', 'data'), Output('gauge_group', 'hidden'), Output('play-yourself-group', 'hidden'),
+    Output('again_replay', 'style'), Output('again_watch', 'style'), Output('alert', 'children'),
+    Input('game_go', 'n_clicks'),
+    State('watch_params', 'hidden'),
+)
+def open_watch(n, watch, ):
+    if n:
+        body = {
+            'kind': 'Agents'
+        }
+        resp, content = api_request('POST', 'all_items', body)
+        if resp == Resp.GOOD:
+            return 'watch', False, True, {'visibility': 'hidden'}, {'visibility': 'visible'}, \
+                   opt_list(content), mode_names['replay'], NUP
+        return 'watch', False, True, {'visibility': 'hidden'}, {'visibility': 'visible'}, \
+               [], mode_names['replay'], general_alert(content)
+    raise PreventUpdate
+
+
+@app.callback(
+    Output('again_replay', 'disabled'), Output('again_watch', 'disabled'),
+    Input('move_delay', 'disabled')
+)
+def enable_again(pause):
+    return not pause, not pause
 
 
 @app.callback(
     Output('move_delay', 'disabled'), Output('current_game', 'data'), Output('moves_tiles', 'data'),
-    Output('what_game', 'children'), Output('game_option', 'hidden'), Output('alert', 'children'),
-    Input('go_game', 'n_clicks'), Input('again_game', 'n_clicks'),
-    State('current_game_mode', 'data'), State('game_option_value', 'value'), State('user_profile', 'data'),
-    State('current_game', 'data'), State('finish_game', 'value')
+    Output('what_game', 'children'), Output('replay', 'hidden'), Output('alert', 'children'),
+    Input('go_game', 'n_clicks'), Input('again_replay', 'n_clicks'),
+    State('replay_value', 'value')
 )
-def replay_watch(n1, n2, mode, idx, user, game, finish):
-    ctx = callback_context
-    if not ctx.triggered:
-        raise PreventUpdate
-    btn = ctx.triggered[0]['prop_id'].split('.')[0]
-    if mode == 'replay':
+def replay_game(n1, n2, idx):
+    if n1 or n2:
         body = {
             'idx': idx,
         }
@@ -694,25 +731,44 @@ def replay_watch(n1, n2, mode, idx, user, game, finish):
                 'tiles': content['tiles'],
                 'current': 0
             }
-            return False, game, moves_tiles, f'{mode_names[mode]}: {idx}', True, NUP
+            return False, game, moves_tiles, f'Replay Game: {idx}', True, NUP
         return True, NUP, NUP, NUP, NUP, general_alert(content)
-    else:
-        if finish == 'New game' or btn == 'again_game':
-            game = GAME.new_game()
-        body = {
-            'name': user['name'],
-            'idx': idx,
-            'initial': game
-        }
-        moves_tiles = {
-            'moves': [],
-            'tiles': [],
-            'current': 0
-        }
-        resp, content = api_request('POST', 'watch', body)
-        if resp == Resp.GOOD:
-            return False, game, moves_tiles, f'{mode_names[mode]}: {idx}', True, NUP
-        return True, NUP, NUP, NUP, NUP, general_alert(content)
+    raise PreventUpdate
+
+
+@app.callback(
+    Output('move_delay', 'disabled'), Output('current_game', 'data'), Output('moves_tiles', 'data'),
+    Output('what_game', 'children'), Output('watch', 'hidden'), Output('alert', 'children'),
+    Output('loading_progress', 'className'),
+    Input('go_agent', 'n_clicks'), Input('again_agent', 'n_clicks'),
+    State('replay_value', 'value'), State('current_game', 'data'), State('finish_game', 'value'),
+    background=True,
+    running=[
+        (State('go_agent', 'disabled'), True, False)
+    ]
+)
+def watch_agent(n1, n2, idx, game, finish):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    btn = ctx.triggered[0]['prop_id'].split('.')[0]
+    body = {
+        'idx': idx
+    }
+    resp, content = api_request('POST', 'watch', body)
+    if resp == Resp.GOOD:
+        status, weights = get_from_url(content, mode='local')
+        if status == Resp.GOOD:
+            if finish == 'New game' or btn == 'again_replay':
+                game = GAME.new_game()
+            moves_tiles = {
+                'moves': [],
+                'tiles': [],
+                'current': 0
+            }
+            return False, game, moves_tiles, f'Watch Agent Play: {idx}', True, NUP, NUP
+        return True, NUP, NUP, NUP, NUP, general_alert(status), NUP
+    return True, NUP, NUP, NUP, NUP, general_alert(content), NUP
 
 
 @app.callback(
@@ -777,8 +833,7 @@ def get_agent_params(n1, n2, user):
         case 'train':
             return mode, 'training parameters', opt_list(user['Agents']), NUP, False, False, True
         case 'test':
-            opts = [v['idx'] for v in user['Agents']] + ['Random moves', 'Best score moves']
-            return mode, 'testing parameters', NUP, opt_list(opts), False, True, False
+            return mode, 'testing parameters', NUP, agents_extra(user['Agents']), False, True, False
 
 
 @app.callback(
@@ -834,7 +889,8 @@ def train_test_agent(*args):
     if mode == 'train':
         agent = states['train_p_agent_new'] if is_new else states['train_p_agent_ex']
         params = {core_id(v): states[v] for v in states if v.startswith(mode) and core_id(v) in AGENT_TRAIN_LIST}
-        params['n'] = int(params['n'])
+        if params['n'] is not None:
+            params['n'] = int(params['n'])
     else:
         agent = states['test_p_agent']
         params = {core_id(v): states[v] for v in states if v.startswith(mode) and core_id(v) in AGENT_TEST_LIST}

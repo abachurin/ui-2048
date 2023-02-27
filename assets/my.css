@@ -244,7 +244,7 @@ body {
 
 /* Game pane */
 
-#instruction, #game_option {
+#instruction {
     position: absolute;
     top: 7rem;
     left: calc(50% - 12rem);
@@ -256,11 +256,28 @@ body {
     z-index: 100;
 }
 
+#game {
+    position: absolute;
+    top: 8rem;
+    left: calc(50% - 13rem);
+    height: 22rem;
+    width: 26rem;
+    background: var(--bs-white);
+    white-space: pre-wrap;
+    z-index: 100;
+}
+
 .inst-header {
     background: var(--bs-gray-400);
     color: var(--bs-black);
     text-transform: uppercase;
     border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.progress {
+    position: absolute;
+	top: calc(50% - 2rem);
+    z-index: 1000;
 }
 
 .app-finish-game {
@@ -430,7 +447,7 @@ body {
     width: calc(100% - 2rem);
 }
 
-.app-train-box {
+.app-train-box, .app-watch-box {
     position: absolute;
     top: 3.5rem;
     width: calc(100% - 2rem);
@@ -473,8 +490,8 @@ body {
 
 .app-btn-chart {
     position: absolute;
-    margin-top: 1rem;
-    right: 0;
+    top: 15rem;
+    right: 1rem;
 }
 
 #chart {
