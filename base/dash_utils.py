@@ -21,24 +21,24 @@ with open('base/config.json', 'r') as f:
 navbar_logo = './assets/favicon.ico'
 navbar_title = 'Robot 2048'
 
-modals_draggable = ['login', 'files', 'users', 'agent', 'game_option']
-modals_only_one_open = ['login', 'files', 'users', 'agent', 'game_option']
-modals_open_close = ['login', 'files', 'users']
-modals_just_close = ['agent', 'game_option']
+divs_draggable = ['login', 'files', 'users', 'agent', 'game_option', 'chart']
+divs_only_one_open = ['login', 'files', 'users', 'agent', 'game_option']
+divs_open_close = ['login', 'files', 'users', 'chart']
+divs_just_close = ['agent', 'game_option']
 buttons_to_confirm = {
     'del_user_open': 'confirm_delete',
     'users_delete': 'confirm_user_delete'
 }
+modal_open_close = ['guide']
 
 mode_names = {
     'guide': 'HELP!',
     'train': 'Train Agent',
-    'test': 'Collect Agent Statistics',
+    'test': 'Agent Statistics',
     'watch': 'Watch Agent Play',
     'replay': 'Replay Game',
     'play': 'Play Yourself'
 }
-mode_list = list(mode_names) + ['files', 'del_user', 'users']
 mode_names_disabled = ['train', 'test', 'files', 'del_user', 'users']
 keyboard_dict = {
     'Left': 0,
@@ -46,13 +46,19 @@ keyboard_dict = {
     'Right': 2,
     'Down': 3
 }
+job_status_description = {
+    -1: 'KILL',
+    0: 'STOP',
+    1: 'IN QUEUE',
+    2: 'WORKING'
+}
 
 AGENT_PARAMS = {
     'train': {
         'agent_ex': {'element': 'select', 'value': None, 'options': []},
         'agent_new': {'element': 'input', 'type': 'text', 'value': None},
         'n': {'element': 'select', 'value': 4, 'options': [2, 3, 4, 5, 6], 'disabled': True},
-        'alpha': {'element': 'input', 'type': 'number', 'value': 0.25, 'step': 0.0001},
+        'alpha': {'element': 'input', 'type': 'number', 'value': 0.2, 'step': 0.0001},
         'decay': {'element': 'input', 'type': 'number', 'value': 0.75, 'step': 0.01},
         'step': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000},
         'min_alpha': {'element': 'input', 'type': 'number', 'value': 0.01, 'step': 0.0001},
@@ -68,7 +74,7 @@ AGENT_PARAMS = {
 }
 AGENT_TRAIN_LIST = list(AGENT_PARAMS['train'])[2:]
 AGENT_TRAIN_DEF = {v: AGENT_PARAMS['train'][v]['value'] for v in AGENT_TRAIN_LIST}
-AGENT_TEST_LIST = list(AGENT_PARAMS['train'])[1:]
+AGENT_TEST_LIST = list(AGENT_PARAMS['test'])[1:]
 
 
 def core_id(v):
@@ -105,7 +111,7 @@ def job_description(job: dict):
     header = f"{job['agent']}\n"
     des_list = AGENT_TRAIN_LIST if mode == 'train' else AGENT_TEST_LIST
     return job_description_header[mode], header + \
-        '\n'.join([str(job[v]) for v in des_list]) + '\n' + job['launch']
+        '\n'.join([str(job[v]) for v in des_list]) + '\n' + job['launch_time']
 
 
 def download_from_url(url: str):
@@ -125,13 +131,52 @@ def download_from_url(url: str):
         return f'Download failed: {r.status_code}, {r.text}', None
 
 
-def download_json(name: str, data: dict):
-    name = f"{name.replace(':', '_')}.json"
-    with open(name, 'w') as f:
-        json.dump(data, f)
-    to_send = dcc.send_file(name)
-    os.remove(name)
+def get_array_item(user: dict, kind: str, idx: str):
+    try:
+        return next(v for v in user[kind] if v['idx'] == idx)
+    except StopIteration:
+        return
+
+
+def download_json(user: dict, kind: str, idx: str):
+    item = get_array_item(user, kind, idx)
+    if item is None:
+        return NUP
+    filename = f"{idx.replace(':', '_')}.json"
+    with open(filename, 'w') as f:
+        json.dump(item, f)
+    to_send = dcc.send_file(filename)
+    os.remove(filename)
     return to_send
+
+
+def description_for_file_manager(user: dict, kind: str, idx: str):
+    item = get_array_item(user, kind, idx)
+    if item is None:
+        return None
+    match kind:
+        case 'Agents':
+            return f"Creator = {item['creator']}\n" \
+                   f"Agent signature N = {item['n']}\n" \
+                   f"Current Learning Rate = {item['alpha']}\n" \
+                   f"LR decay = {item['decay']}\n" \
+                   f"Decay step = {item['step']}\n" \
+                   f"LR floor = {item['min_alpha']}\n" \
+                   f"Trained for episodes = {item['train_eps']}\n" \
+                   f"Best score so far = {item['best_score']}\n" \
+                   f"Maximum tile achieved = {1 << item['max_tile']}"
+        case 'Games':
+            return f"Player = {item['player']}\n" \
+                   f"Score = {item['score']}\n" \
+                   f"Number of moves = {item['num_of_moves']}\n" \
+                   f"Maximum tile achieved = {item['max_tile']}"
+        case 'Jobs':
+            return f"Status = {job_status_description[item['status']]}\n" \
+                   f"User = {item['name']}\n" \
+                   f"Created at = {item['creation_time']}\n" \
+                   f"Launched at = {item['launch_time']}\n" \
+                   f"Agent = {item['agent']}\n" \
+                   f"Mode = {item['mode'].upper()}"
 
 
 def general_alert(text: str, good=False):
@@ -143,7 +188,7 @@ def general_alert(text: str, good=False):
 
 
 def is_bad_name(s: str):
-    return (s is None) or (not re.match("^[\w\d_]+$", s)) or (len(s) > 12)
+    return (s is None) or (not re.match("^[\w\d_]+$", s)) or (len(s) > 12) or (s in ('Random', 'Score'))
 
 
 def while_loading(idx, top):

@@ -36,8 +36,9 @@ app.layout = dbc.Container([
                       message='Are you sure? All Agents assigned to this user will be deleted'),
     dbc.NavbarSimple(
         children=[
-            dbc.Button('Manage Users', id='users_open', className='app-btn', color='primary', disabled=True),
-            dbc.Button('Manage Resources', id='files_open', className='app-btn app-r1', color='primary', disabled=True),
+            dbc.Button('Contacts', id='contacts_open', className='app-btn', color='info', disabled=True),
+            dbc.Button('Manage Users', id='users_open', className='app-btn app-r1', color='primary', disabled=True),
+            dbc.Button('My Objects', id='files_open', className='app-btn app-r1', color='primary', disabled=True),
             dbc.Button('Delete Me', id='del_user_open', className='app-btn app-r1', disabled=True, color='primary'),
             dbc.Button('Log in', id='login_open', className='app-btn app-r1', color='success'),
             dbc.Button('Quit', id='quit', className='app-btn app-r1', color='warning')
@@ -67,7 +68,7 @@ app.layout = dbc.Container([
         ], className='app-modal-footer')
     ], id='login', className='app-border', hidden=False),
     html.Div([
-        dbc.ModalHeader('manage files', close_button=False, id='files_header', className='app-modal-header'),
+        dbc.ModalHeader('Manage My Objects', close_button=False, id='files_header', className='app-modal-header'),
         dbc.ModalBody(children=[
             html.Div('Agents/Games ?'),
             dcc.Dropdown(id='files_kind', options=opt_list(FIELDS), clearable=False),
@@ -109,6 +110,12 @@ app.layout = dbc.Container([
             close_button=False, id='guide_header'),
         dbc.ModalBody(id='guide_body'),
     ], id='guide', size='xl', contentClassName='app-guide-body', className='app-border', scrollable=True),
+    html.Div([
+        dbc.ModalBody(id='chart_body', className='app-chart-body'),
+        dbc.ModalFooter([
+            dbc.Button('Quit', id='chart_close', className='app-btn', color='warning')
+        ], className='app-modal-footer')
+    ], id='chart', className='app-border', hidden=True),
     dbc.Row([
         dbc.Col(
             dbc.Card([
@@ -126,11 +133,14 @@ app.layout = dbc.Container([
                         ], id='train_params', hidden=True),
                         html.Div([
                             params_line('test', p) for p in AGENT_PARAMS['test']
+                        ] + [
+                            dbc.Button('Training Chart', id='chart_open', className='app-btn app-btn-chart',
+                                       color='primary', disabled=True)
                         ], id='test_params', className='app-test-box', hidden=True)
                     ], className='app-modal-body'),
                     dbc.ModalFooter([
                         dbc.Button('Go!', id='agent_btn', className='app-btn app-btn-submit', color='success'),
-                        dbc.Button('Quit', id='agent_close', className='app-btn app-r1', color='warning')
+                        dbc.Button('Quit', id='agent_close', className='app-btn', color='warning')
                     ], className='app-modal-footer')
                 ], id='agent', className='app-border', hidden=True),
                 html.Div('Waiting for action', id='what_agent', className='app-pane-header'),
@@ -193,7 +203,7 @@ app.layout = dbc.Container([
 
 
 # general callbacks
-for v in modals_open_close:
+for v in divs_open_close:
     @app.callback(
         Output(v, 'hidden'),
         Input(f'{v}_open', 'n_clicks'), Input(f'{v}_close', 'n_clicks')
@@ -205,8 +215,19 @@ for v in modals_open_close:
         trigger_id = ctx['prop_id'].split('.')[0][-1]
         return trigger_id == 'e'
 
+for v in modal_open_close:
+    @app.callback(
+        Output(v, 'is_open'),
+        Input(f'{v}_open', 'n_clicks'), Input(f'{v}_close', 'n_clicks')
+    )
+    def open_modal(*args):
+        ctx = callback_context.triggered[0]
+        if ctx['value'] is None:
+            raise PreventUpdate
+        trigger_id = ctx['prop_id'].split('.')[0][-1]
+        return trigger_id == 'n'
 
-for v in modals_just_close:
+for v in divs_just_close:
     @app.callback(
         Output(v, 'hidden'),
         Input(f'{v}_close', 'n_clicks')
@@ -215,7 +236,6 @@ for v in modals_just_close:
         if n:
             return True
         raise PreventUpdate
-
 
 for v in buttons_to_confirm:
     @app.callback(
@@ -229,15 +249,15 @@ for v in buttons_to_confirm:
 
 
 @app.callback(
-    [Output(v, 'hidden') for v in modals_only_one_open],
-    [Input(v, 'hidden') for v in modals_only_one_open]
+    [Output(v, 'hidden') for v in divs_only_one_open],
+    [Input(v, 'hidden') for v in divs_only_one_open]
 )
 def only_one_open(*args):
     ctx = callback_context
     if not ctx.triggered or ctx.triggered[0]['value']:
         raise PreventUpdate
     to_open = ctx.triggered[0]['prop_id'].split('.')[0]
-    return [(True if v != to_open else False) for v in modals_only_one_open]
+    return [(True if v != to_open else False) for v in divs_only_one_open]
 
 
 #  Update User attributes and logs
@@ -343,16 +363,20 @@ def login_submit(n1, n2, n3, name, pwd, profile):
 )
 def display_name(user):
     if user:
-        opts = [2, 3, 4, 5, 6] if user['status'] == 'admin' else [2, 3, 4]
-        if not user['Jobs']:
-            header = 'waiting for action'
-            des_headers, des_values = None, None
+        if user['status'] == 'admin':
+            opts = opt_list([2, 3, 4, 5, 6])
         else:
-            job = user['Jobs'][0]
+            opts = [{'label': v, 'value': v, 'disabled': True if v > 4 else False, 'title': f'select_n_{v}'}
+                    for v in [2, 3, 4, 5, 6]]
+        header = 'waiting for action'
+        des_headers, des_values = None, None
+        jobs = [v for v in user['Jobs'] if v['status'] == 2]
+        if jobs:
+            job = jobs[0]
             mode = job['mode']
             header = f'currently working: {mode_names[mode]}'
             des_headers, des_values = job_description(job)
-        return [opt_list(opts), opt_list(user['Agents']), des_headers, des_values, header] \
+        return [opts, opt_list(user['Agents']), des_headers, des_values, header] \
             + [False] * len(mode_names_disabled) + [user['status'] != 'admin']
     return [NUP, [], None, None, 'waiting for action'] + [True] * (len(mode_names_disabled) + 1)
 
@@ -447,7 +471,8 @@ def delete_users(n, name, options):
 
 # Manage files
 @app.callback(
-    Output('files_name', 'options'), Output('alert', 'children'), Output('files_weights', 'style'),
+    Output('files_name', 'options'), Output('files_name', 'value'),
+    Output('alert', 'children'), Output('files_weights', 'style'),
     Input('files_kind', 'value'),
     State('user_profile', 'data')
 )
@@ -460,27 +485,38 @@ def files_options(kind, user):
             }
             resp, content = api_request('POST', 'all_items', body)
             if resp == Resp.GOOD:
-                return opt_list(content), NUP, {'visibility': see_weights}
-            return NUP, general_alert(content), {'visibility': 'hidden'}
-        return opt_list(user[kind]), NUP, {'visibility': see_weights}
-    return [], NUP, NUP
+                return opt_list(content), None, NUP, {'visibility': see_weights}
+            return NUP, NUP, general_alert(content), {'visibility': 'hidden'}
+        return opt_list(user[kind]), None, NUP, {'visibility': see_weights}
+    return [], None, NUP, NUP
+
+
+@app.callback(
+    Output('files_description', 'children'),
+    Input('files_name', 'value'),
+    State('files_kind', 'value'), State('user_profile', 'data')
+)
+def files_show_description(idx, kind, user):
+    if idx and user:
+        return description_for_file_manager(user, kind, idx)
 
 
 @app.callback(
     Output('download', 'data'), Output('alert', 'children'), Output('api_update', 'n_intervals'),
+    Output('files_kind', 'value'),
     Input('files_download', 'n_clicks'), Input('files_delete', 'n_clicks'), Input('files_weights', 'n_clicks'),
-    State('files_kind', 'value'), State('files_name', 'value'),
+    State('files_kind', 'value'), State('files_name', 'value'), State('user_profile', 'data'),
     State('api_update', 'n_intervals')
 )
-def manage_files(n1, n2, n3, kind, idx, interval):
+def manage_files(n1, n2, n3, kind, idx, user, interval):
     ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
     action = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
     if kind is None or idx is None:
-        return NUP, general_alert('Choose a file to perform action'), NUP
+        return NUP, general_alert('Choose a file to perform action'), NUP, NUP
     if action == 'download':
-
+        return download_json(user, kind, idx), NUP, NUP, NUP
     body = {
         'kind': kind,
         'idx': idx,
@@ -489,27 +525,15 @@ def manage_files(n1, n2, n3, kind, idx, interval):
     resp, content = api_request('POST', 'file', body)
     if resp == Resp.GOOD:
         if action == 'delete':
-            return NUP, general_alert(f'{idx} was successfully deleted from {kind}', good=True), interval + 1
+            return NUP, general_alert(f'{idx} was successfully deleted from {kind}', good=True), interval + 1, None
         status, to_send = download_from_url(content)
         if status == Resp.GOOD:
-            return to_send, NUP, NUP
-        return NUP, general_alert(status), NUP
-    return NUP, general_alert(content), NUP
+            return to_send, NUP, NUP, NUP
+        return NUP, general_alert(status), NUP, NUP
+    return NUP, general_alert(content), NUP, NUP
 
 
 # Guide
-@app.callback(
-    Output('guide', 'is_open'),
-    Input('guide_open', 'n_clicks'), Input('guide_close', 'n_clicks')
-)
-def open_modal(*args):
-    ctx = callback_context.triggered[0]
-    if ctx['value'] is None:
-        raise PreventUpdate
-    trigger_id = ctx['prop_id'].split('.')[0][-1]
-    return trigger_id == 'n'
-
-
 @app.callback(
     Output('guide_body', 'children'),
     Input('guide_ui', 'n_clicks'), Input('guide_pd', 'n_clicks'), Input('guide_ps', 'n_clicks')
@@ -690,6 +714,7 @@ def replay_watch(n1, n2, mode, idx, user, game, finish):
             return False, game, moves_tiles, f'{mode_names[mode]}: {idx}', True, NUP
         return True, NUP, NUP, NUP, NUP, general_alert(content)
 
+
 @app.callback(
     Output('gauge', 'value'), Output('move_delay', 'interval'),
     Input('gauge_slider', 'value')
@@ -724,11 +749,12 @@ def make_a_move(n, moves_tiles, game):
         moves = moves_tiles['moves']
         tiles = moves_tiles['tiles']
         current = moves_tiles['current']
-        if current >= len(moves):
+        current_move = moves[current]
+        if current_move == -1:
             return NUP, NUP, True
-        new_game, _ = GAME.make_move(game, moves[current])
-        GAME.place_tile(new_game, tiles[current])
+        new_game, _ = GAME.make_move(game, current_move)
         new_game['next_move'] = moves[current + 1] if current + 1 < len(moves) else -1
+        GAME.place_tile(new_game, tiles[current])
         moves_tiles['current'] += 1
         return new_game, moves_tiles, False
     raise PreventUpdate
@@ -737,37 +763,40 @@ def make_a_move(n, moves_tiles, game):
 # Agent pane
 @app.callback(
     Output('current_agent_mode', 'data'), Output('agent_header', 'children'),
+    Output('train_p_agent_ex', 'options'), Output('test_p_agent', 'options'),
     Output('agent', 'hidden'), Output('train_params', 'hidden'), Output('test_params', 'hidden'),
-    Input('train_open', 'n_clicks'), Input('test_open', 'n_clicks')
+    Input('train_open', 'n_clicks'), Input('test_open', 'n_clicks'),
+    State('user_profile', 'data')
 )
-def get_agent_params(*args):
+def get_agent_params(n1, n2, user):
     ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
     mode = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[0]
     match mode:
         case 'train':
-            return mode, 'training parameters', False, False, True
+            return mode, 'training parameters', opt_list(user['Agents']), NUP, False, False, True
         case 'test':
-            return mode, 'testing parameters', False, True, False
+            opts = [v['idx'] for v in user['Agents']] + ['Random moves', 'Best score moves']
+            return mode, 'testing parameters', NUP, opt_list(opts), False, True, False
 
 
 @app.callback(
-    [Output('existing_visible', 'hidden'), Output('new_visible', 'hidden'), Output('train_p_agent_ex', 'options')]
+    [Output('existing_visible', 'hidden'), Output('new_visible', 'hidden')]
     + [Output(f'train_p_{v}', 'value') for v in AGENT_PARAMS['train']]
     + [Output(f'train_p_{v}', 'disabled') for v in AGENT_TRAIN_LIST],
     Input('existing_new', 'value'),
     State('user_profile', 'data')
 )
-def toggle_training(mode, user):
+def populate_train_params(mode, user):
     if not user:
         raise PreventUpdate
     if mode == 'Existing Agent':
-        return [False, True, opt_list(user['Agents'])] \
+        return [False, True] \
             + [None for _ in AGENT_PARAMS['train']] \
             + [(True if v in ('n', ) else False) for v in AGENT_TRAIN_LIST]
-    return [True, False, NUP] + [None, None]\
-        + [AGENT_TRAIN_DEF[v] for v in AGENT_TRAIN_LIST] \
+    return [True, False] \
+        + [None, None] + [AGENT_TRAIN_DEF[v] for v in AGENT_TRAIN_LIST] \
         + [False for _ in AGENT_TRAIN_LIST]
 
 
@@ -787,7 +816,7 @@ def toggle_training(idx, user):
     Output('agent', 'hidden'), Output('api_update', 'n_intervals'), Output('alert', 'children'),
     Input('agent_btn', 'n_clicks'),
     [State('current_agent_mode', 'data'), State('user_profile', 'data'),
-     State('existing_new', 'value'), State('api_update', 'n_intervals') ]
+     State('existing_new', 'value'), State('api_update', 'n_intervals')]
     + [State(f'train_p_{v}', 'value') for v in AGENT_PARAMS['train']]
     + [State(f'test_p_{v}', 'value') for v in AGENT_PARAMS['test']]
 )
@@ -804,10 +833,11 @@ def train_test_agent(*args):
     is_new = (mode == 'train') and (states['existing_new'] == 'New Agent')
     if mode == 'train':
         agent = states['train_p_agent_new'] if is_new else states['train_p_agent_ex']
-        params = {core_id(v): states[v] for v in states if core_id(v) in AGENT_TRAIN_LIST}
+        params = {core_id(v): states[v] for v in states if v.startswith(mode) and core_id(v) in AGENT_TRAIN_LIST}
+        params['n'] = int(params['n'])
     else:
         agent = states['test_p_agent']
-        params = {core_id(v): states[v] for v in states if core_id(v) in AGENT_TEST_LIST}
+        params = {core_id(v): states[v] for v in states if v.startswith(mode) and core_id(v) in AGENT_TEST_LIST}
     if agent is None or None in params.values():
         return NUP, NUP, general_alert('Some parameters are missing or invalid')
     if is_bad_name(agent):
@@ -818,7 +848,8 @@ def train_test_agent(*args):
     body = {
         'idx': idx,
         'status': 1,
-        'launch': 'Sent to job queue',
+        'creation_time': time_now(),
+        'launch_time': None,
         'name': name,
         'mode': mode,
         'is_new': is_new,
@@ -853,59 +884,43 @@ def stop_job(*args):
     }
     resp, content = api_request('POST', 'job_status', body)
     if resp == Resp.GOOD:
-        return general_alert(f'{new_status} {idx} request received', good=True)
+        return general_alert(f'{job_status_description[new_status]} {idx} request received', good=True)
     else:
         return general_alert(content)
 
 
-# @app.callback(
-#     Output('data_uploader', 'style'),
-#     Input('admin_go', 'children')
-# )
-# def show_upload(act):
-#     return {'display': 'block' if act == 'Upload' else 'none'}
-#
-#
-# @app.callback(
-#     Output('admin_notification', 'children'), Output('uploading', 'className'),
-#     Input('data_uploader', 'filename'), State('data_uploader', 'contents'),
-#     State('choose_file', 'value')
-# )
-# def upload_process(name, content, kind):
-#     if name:
-#         file_data = content.encode("utf8").split(b";base64,")[1]
-#         with open(name, "wb") as f:
-#             f.write(base64.decodebytes(file_data))
-#         prefix = 'c/' if kind == 'config file' else ('g/' if kind == 'game' else 'a/')
-#         s3_bucket.upload_file(name, prefix + name)
-#         os.remove(name)
-#         return my_alert(f'Uploaded {name} as new {kind}'), NUP
-#     else:
-#         raise PreventUpdate
-
-#
-# @app.callback(
-#     Output('chart_header', 'children'), Output('chart', 'children'), Output('chart_loading', 'className'),
-#     Input('chart_page', 'is_open'),
-#     State('agent_for_chart', 'data')
-# )
-# def make_chart(is_open, agent_file):
-#     if is_open:
-#         agent = load_s3(agent_file)
-#         if agent is None:
-#             return '', f'No Agent with this name in storage', NUP
-#         history = agent.train_history
-#         header = f'Training history of {agent.name}'
-#         if not history:
-#             return header, 'No history yet', NUP
-#         x = np.array([v * 100 for v in range(1, len(history) + 1)])
-#         fig = px.line(x=x, y=history, labels={'x': 'number of episodes', 'y': 'Average score of last 100 games'})
-#         return header, dcc.Graph(figure=fig, style={'width': '100%', 'height': '100%'}), NUP
-#     else:
-#         raise PreventUpdate
+# Chart training history
+@app.callback(
+    Output('chart_open', 'disabled'),
+    Input('test_p_agent', 'value')
+)
+def enable_chart_button(idx):
+    return not bool(idx)
 
 
-for v in modals_draggable:
+@app.callback(
+    Output('chart_body', 'children'),
+    Input('chart_open', 'n_clicks'),
+    State('test_p_agent', 'value'), State('user_profile', 'data')
+)
+def train_history_chart(n, idx, user):
+    if n:
+        agent = get_array_item(user, 'Agents', idx)
+        step = agent['collect_step']
+        y = agent['train_history']
+        x = list(range(step, step * len(y) + 1, step))
+        return dcc.Graph(figure={
+                'data': [{'x': x, 'y': y, 'type': 'line'}],
+                'layout': {
+                    'title': f"{agent['idx']} training history over {step * len(y)} episodes",
+                    'xaxis': {'title': 'Training episode'},
+                    'yaxis': {'title': 'Average score over 100 games'}
+                }
+            }, responsive=True)
+    raise PreventUpdate
+
+
+for v in divs_draggable:
     app.clientside_callback(
         ClientsideFunction(namespace='drag_div', function_name='drag_div'),
         Output(v, 'className'),
