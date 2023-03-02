@@ -4,6 +4,8 @@ from .start import *
 class GameLogic:
     # This class is a collection of functions which operate with the json-style game object
     pattern = {
+        'idx': 'game name',
+        'initial': '4 x 4 python list of lists',
         'row': '4 x 4 python list of lists',
         'score': 'current score',
         'moves': 'number of moves made so far',
@@ -21,6 +23,8 @@ class GameLogic:
     @staticmethod
     def empty_game():
         return {
+            'idx': None,
+            'initial': [[0] * 4 for _ in range(4)],
             'row': [[0] * 4 for _ in range(4)],
             'score': 0,
             'moves': 0,
@@ -49,11 +53,11 @@ class GameLogic:
                         line_2 = tuple(line_2 + [0] * (4 - len(line_2)))
                         self.table[line] = (list(line_2), score, line != line_2)
 
-    def new_game(self, start=True):
+    def new_game(self):
         game = self.empty_game()
-        if start:
-            self.new_tile(game)
-            self.new_tile(game)
+        self.new_tile(game)
+        self.new_tile(game)
+        game['initial'] = deepcopy(game['row'])
         return game
 
     @staticmethod
@@ -90,8 +94,7 @@ class GameLogic:
 
     def _left(self, game):
         change = False
-        new_game = self.empty_game()
-        new_game['score'] = game['score']
+        new_game = game.copy()
         for i in range(4):
             line, score, change_line = self.table[tuple(game['row'][i])]
             new_game['row'][i] = line[:]
@@ -103,11 +106,7 @@ class GameLogic:
 
     @staticmethod
     def _rotate(game, move):
-        new_game = {
-            'score': game['score'],
-            'moves': game['moves'],
-            'next_move': game['next_move']
-        }
+        new_game = game.copy()
         row = game['row']
         new_row = [[0] * 4 for _ in range(4)]
         for i in range(4):

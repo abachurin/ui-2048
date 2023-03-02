@@ -1,5 +1,3 @@
-import time
-
 from base.dash_utils import *
 
 dash_directory = os.path.dirname(os.path.realpath(__file__))
@@ -31,6 +29,8 @@ app.layout = dbc.Container([
     EventListener(id='keyboard'),
     dcc.Interval(id='move_delay', n_intervals=0, disabled=True),
     dcc.Store(id='moves_tiles', storage_type='session'),
+    dcc.Store(id='tmp_user', storage_type='session'),
+    dcc.Interval(id='tmp_update', interval=2000, n_intervals=0, disabled=True),
     dcc.Download(id='download'),
     html.Div(id='alert'),
     dcc.ConfirmDialog(id='confirm_delete',
@@ -196,10 +196,7 @@ app.layout = dbc.Container([
                                step=0.1, className='app-speed-slider'),
                     html.Div([
                         dbc.Button('PAUSE', id='pause_game', className='app-btn app-pause-btn', color='info'),
-                        dbc.Button('REPLAY', id='again_replay', className='app-btn app-again-btn', color='success',
-                                   style={'visibility': 'hidden'}),
-                        dbc.Button('REPLAY', id='again_watch', className='app-btn app-again-btn', color='success',
-                                   style={'visibility': 'hidden'}),
+                        dbc.Button('REPLAY', id='go_again', className='app-btn app-again-btn', color='success'),
                         dbc.Button('RESUME', id='resume_game', className='app-btn app-resume-btn'),
                     ], className='app-button-line')
                 ], id='gauge_group', className='app-gauge-group', hidden=False),
@@ -347,7 +344,7 @@ def login_submit(n1, n2, n3, name, pwd, profile):
     if not name or not pwd:
         return NUP, NUP, NUP, NUP, general_alert('Name and Password should be filled'), NUP, NUP, NUP
     if is_bad_name(name):
-        return NUP, NUP, NUP, NUP, general_alert('Name should only contain literals, numbers and "_" symbol'), \
+        return NUP, NUP, NUP, NUP, general_alert('User name should only contain literals, numbers and "_" symbol'), \
                NUP, NUP, NUP
     body = {
         'name': name,
@@ -658,7 +655,7 @@ def get_watch_options(hidden):
     }
     resp, content = api_request('POST', 'all_items', body)
     if resp == Resp.GOOD:
-        return agents_extra(content), NUP
+        return opt_list(content + EXTRA_AGENTS), NUP
     return [], general_alert(content)
 
 
@@ -679,47 +676,90 @@ def get_replay_options(hidden):
 
 
 @app.callback(
-    Output('current_game_mode', 'data'), Output('gauge_group', 'hidden'), Output('play-yourself-group', 'hidden'),
-    Output('again_replay', 'style'), Output('again_watch', 'style'), Output('alert', 'children'),
+    Output('tmp_user', 'data'), Output('tmp_update', 'disabled'),
+    Output('move_delay', 'disabled'), Output('current_game', 'data'), Output('moves_tiles', 'data'),
+    Output('what_game', 'children'), Output('watch_params', 'hidden'), Output('alert', 'children'),
+    Output('loading_progress', 'className'),
     Input('game_go', 'n_clicks'),
-    State('watch_params', 'hidden'),
+    [State('current_game_mode', 'data'), State('finish_game', 'value'),
+     State('tmp_user', 'data'), State('current_game', 'data')]
+    + [State(f'watch_p_{p}', 'value') for p in AGENT_PARAMS['watch']],
+    background=True,
+    running=[
+        (State('game_go', 'disabled'), True, False)
+    ]
 )
-def open_watch(n, watch, ):
-    if n:
+def go_agent(*args):
+    mode = args[1]
+    if args[0] and mode == 'watch':
+        states = {v['id']: v['value'] for v in callback_context.states_list}
+        params = {v: states[f'{mode}_p_{v}'] for v in AGENT_PARAMS['watch']}
+        if None in params.values():
+            return NUP, NUP, NUP, NUP, NUP, NUP, NUP, general_alert('Some parameters are missing or invalid'), NUP
+        if states['finish_game'] == 'New game':
+            game = GAME.new_game()
+        else:
+            game = states['current_game']
+            if game['row'] == EMPTY_GAME['row']:
+                game = GAME.new_game()
+        name = f'tmp_{time_suffix()}'
+        agent = params['agent']
+        idx = f'{name}:{agent}:'
         body = {
-            'kind': 'Agents'
+            'idx': idx,
+            'status': 1,
+            'creation_time': time_now(),
+            'launch_time': None,
+            'name': name,
+            'mode': mode,
+            'row': game['row'],
+            'score': game['score'],
+            'moves': game['moves'],
+            'current': states['tmp_user']
+            **params
         }
-        resp, content = api_request('POST', 'all_items', body)
+        resp, content = api_request('POST', 'slow', body)
         if resp == Resp.GOOD:
-            return 'watch', False, True, {'visibility': 'hidden'}, {'visibility': 'visible'}, \
-                   opt_list(content), mode_names['replay'], NUP
-        return 'watch', False, True, {'visibility': 'hidden'}, {'visibility': 'visible'}, \
-               [], mode_names['replay'], general_alert(content)
+            count = 0
+            while count < agent_load_timeout:
+                body = {
+                    'idx': idx,
+                    'mode': 'check_agent_load'
+                }
+                resp, content = api_request('POST', 'watch', body)
+                if resp == resp.GOOD:
+                    moves_tiles = {
+                        'moves': [],
+                        'tiles': [],
+                        'current': 0
+                    }
+                    return name, False, True, game, moves_tiles, f'Watch Agent Play: {idx}', True, NUP, NUP
+                time.sleep(1)
+                count += 1
+            return NUP, NUP, True, NUP, NUP, NUP, NUP, general_alert(f'Agent {agent} failed to load'), NUP
+        return NUP, NUP, True, NUP, NUP, NUP, NUP, general_alert(content), NUP
     raise PreventUpdate
 
 
 @app.callback(
-    Output('again_replay', 'disabled'), Output('again_watch', 'disabled'),
-    Input('move_delay', 'disabled')
+    Output('gauge_group', 'hidden'), Output('play-yourself-group', 'hidden'), Output('move_delay', 'disabled'),
+    Output('current_game', 'data'), Output('moves_tiles', 'data'), Output('what_game', 'children'),
+    Output('game', 'hidden'), Output('alert', 'children'),
+    Input('game_go', 'n_clicks'),
+    State('current_game_mode', 'data'), State('replay_game', 'value')
 )
-def enable_again(pause):
-    return not pause, not pause
-
-
-@app.callback(
-    Output('move_delay', 'disabled'), Output('current_game', 'data'), Output('moves_tiles', 'data'),
-    Output('what_game', 'children'), Output('replay', 'hidden'), Output('alert', 'children'),
-    Input('go_game', 'n_clicks'), Input('again_replay', 'n_clicks'),
-    State('replay_value', 'value')
-)
-def replay_game(n1, n2, idx):
-    if n1 or n2:
+def go_replay(n, mode, idx):
+    if n and mode == 'replay':
+        if idx is None:
+            return NUP, NUP, NUP, NUP, NUP, NUP, NUP, general_alert('Choose a Game to replay')
         body = {
             'idx': idx,
         }
         resp, content = api_request('POST', 'replay', body)
         if resp == Resp.GOOD:
             game = {
+                'idx': content['idx'],
+                'initial': content['initial'],
                 'row': content['initial'],
                 'score': 0,
                 'moves': 0,
@@ -731,44 +771,37 @@ def replay_game(n1, n2, idx):
                 'tiles': content['tiles'],
                 'current': 0
             }
-            return False, game, moves_tiles, f'Replay Game: {idx}', True, NUP
-        return True, NUP, NUP, NUP, NUP, general_alert(content)
+            return False, True, False, game, moves_tiles, f'Replay Game: {idx}', True, NUP
+        return NUP, NUP, NUP, NUP, NUP, NUP, NUP, general_alert(content)
     raise PreventUpdate
 
 
 @app.callback(
     Output('move_delay', 'disabled'), Output('current_game', 'data'), Output('moves_tiles', 'data'),
-    Output('what_game', 'children'), Output('watch', 'hidden'), Output('alert', 'children'),
-    Output('loading_progress', 'className'),
-    Input('go_agent', 'n_clicks'), Input('again_agent', 'n_clicks'),
-    State('replay_value', 'value'), State('current_game', 'data'), State('finish_game', 'value'),
-    background=True,
-    running=[
-        (State('go_agent', 'disabled'), True, False)
-    ]
+    Output('what_game', 'children'), Output('alert', 'children'),
+    Input('go_again', 'n_clicks'),
+    State('current_game_mode', 'data'), State('current_game', 'data'), State('moves_tiles', 'data')
 )
-def watch_agent(n1, n2, idx, game, finish):
-    ctx = callback_context
-    if not ctx.triggered:
-        raise PreventUpdate
-    btn = ctx.triggered[0]['prop_id'].split('.')[0]
-    body = {
-        'idx': idx
-    }
-    resp, content = api_request('POST', 'watch', body)
-    if resp == Resp.GOOD:
-        status, weights = get_from_url(content, mode='local')
-        if status == Resp.GOOD:
-            if finish == 'New game' or btn == 'again_replay':
-                game = GAME.new_game()
-            moves_tiles = {
-                'moves': [],
-                'tiles': [],
-                'current': 0
+def replay_replay(n, mode, game, move_tiles):
+    if n:
+        if mode == 'replay':
+            if game is None or move_tiles is None:
+                return NUP, NUP, NUP, NUP, NUP, NUP, general_alert('Nothing to replay')
+            move_tiles['current'] = 0
+            replay = {
+                'idx': game['idx'],
+                'initial': game['initial'],
+                'row': game['initial'],
+                'score': 0,
+                'moves': 0,
+                'last_tile': [-1, -1],
+                'next_move': move_tiles['moves'][0]
             }
-            return False, game, moves_tiles, f'Watch Agent Play: {idx}', True, NUP, NUP
-        return True, NUP, NUP, NUP, NUP, general_alert(status), NUP
-    return True, NUP, NUP, NUP, NUP, general_alert(content), NUP
+            return False, replay, move_tiles, f'Replay Game: {game["idx"]}', NUP
+        else:
+            pass
+            raise PreventUpdate
+    raise PreventUpdate
 
 
 @app.callback(
@@ -796,23 +829,35 @@ def resume_game(n):
 
 
 @app.callback(
+    Output('go_again', 'disabled'),
+    Input('move_delay', 'disabled')
+)
+def resume_game(pause):
+    return not pause
+
+
+@app.callback(
     Output('current_game', 'data'), Output('moves_tiles', 'data'), Output('move_delay', 'disabled'),
     Input('move_delay', 'n_intervals'),
-    State('moves_tiles', 'data'), State('current_game', 'data')
+    State('current_game_mode', 'data'), State('moves_tiles', 'data'), State('current_game', 'data')
 )
-def make_a_move(n, moves_tiles, game):
-    if n and moves_tiles:
-        moves = moves_tiles['moves']
-        tiles = moves_tiles['tiles']
-        current = moves_tiles['current']
-        current_move = moves[current]
-        if current_move == -1:
-            return NUP, NUP, True
-        new_game, _ = GAME.make_move(game, current_move)
-        new_game['next_move'] = moves[current + 1] if current + 1 < len(moves) else -1
-        GAME.place_tile(new_game, tiles[current])
-        moves_tiles['current'] += 1
-        return new_game, moves_tiles, False
+def make_a_move_replay(n, mode, moves_tiles, game):
+    if n:
+        if mode == 'replay' and moves_tiles is not None:
+            moves = moves_tiles['moves']
+            tiles = moves_tiles['tiles']
+            current = moves_tiles['current']
+            current_move = moves[current]
+            if current_move == -1:
+                return NUP, NUP, True
+            new_game, _ = GAME.make_move(game, current_move)
+            new_game['next_move'] = moves[current + 1] if current + 1 < len(moves) else -1
+            GAME.place_tile(new_game, tiles[current])
+            moves_tiles['current'] += 1
+            return new_game, moves_tiles, False
+        else:
+            pass
+            raise PreventUpdate
     raise PreventUpdate
 
 
@@ -888,12 +933,12 @@ def train_test_agent(*args):
     is_new = (mode == 'train') and (states['existing_new'] == 'New Agent')
     if mode == 'train':
         agent = states['train_p_agent_new'] if is_new else states['train_p_agent_ex']
-        params = {core_id(v): states[v] for v in states if v.startswith(mode) and core_id(v) in AGENT_TRAIN_LIST}
+        params = {v: states[f'{mode}_p_{v}'] for v in AGENT_TRAIN_LIST}
         if params['n'] is not None:
             params['n'] = int(params['n'])
     else:
         agent = states['test_p_agent']
-        params = {core_id(v): states[v] for v in states if v.startswith(mode) and core_id(v) in AGENT_TEST_LIST}
+        params = {v: states[f'{mode}_p_{v}'] for v in AGENT_TEST_LIST}
     if agent is None or None in params.values():
         return NUP, NUP, general_alert('Some parameters are missing or invalid')
     if is_bad_name(agent):

@@ -12,5 +12,6 @@
     "job_description_header": {
         "train": "AGENT:\nSignature:\nInit Learning Rate:\nLR decay rate:\nDecay frequency:\nMin LR:\nTrain Episodes:\nLaunch time:",
         "test": "AGENT NAME =\nLook ahead:\nBranching:\nEmpty cells trigger:\nTest Episodes:\nLaunch:"
-    }
+    },
+    "agent_load_timeout": 30
 }

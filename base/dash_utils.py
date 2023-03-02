@@ -18,7 +18,7 @@ with open('base/config.json', 'r') as f:
     SPEED = config['replay_speed']
     self_play_instruction = config['self_play_instruction']
     job_description_header = config['job_description_header']
-
+    agent_load_timeout = config['agent_load_timeout']
 
 navbar_logo = './assets/favicon.ico'
 navbar_title = 'Robot 2048'
@@ -84,6 +84,8 @@ AGENT_TRAIN_LIST = list(AGENT_PARAMS['train'])[2:]
 AGENT_TRAIN_DEF = {v: AGENT_PARAMS['train'][v]['value'] for v in AGENT_TRAIN_LIST}
 AGENT_TEST_LIST = list(AGENT_PARAMS['test'])[1:]
 
+EXTRA_AGENTS = ['Random Moves', 'Best Score']
+
 
 def core_id(v):
     return v[v.find('p') + 2:]
@@ -99,7 +101,7 @@ def opt_list(values):
 
 
 def agents_extra(agents: list):
-    opts = [v['idx'] for v in agents] + ['Random moves', 'Best score moves']
+    opts = [v['idx'] for v in agents] + EXTRA_AGENTS
     return opt_list(opts)
 
 
@@ -206,7 +208,7 @@ def general_alert(text: str, good=False):
 
 
 def is_bad_name(s: str):
-    return (s is None) or (not re.match("^[\w\d_]+$", s)) or (len(s) > 12) or (s in ('Random', 'Score'))
+    return (s is None) or (not re.match("^[\w\d_]+$", s)) or (len(s) > 12)
 
 
 cell_size = 7
