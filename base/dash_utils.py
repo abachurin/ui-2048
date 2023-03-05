@@ -68,16 +68,16 @@ AGENT_PARAMS = {
     },
     'test': {
         'agent': {'element': 'select', 'value': None, 'options': []},
-        'depth': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 4},
+        'depth': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 2},
         'width': {'element': 'input', 'type': 'number', 'value': 1, 'step': 1, 'min': 1, 'max': 4},
-        'trigger': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 8},
+        'trigger': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 6},
         'episodes': {'element': 'input', 'type': 'number', 'value': 100, 'step': 100, 'min': 100, 'max': 1000}
     },
     'watch': {
         'agent': {'element': 'select', 'value': None, 'options': []},
-        'depth': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 4},
+        'depth': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 2},
         'width': {'element': 'input', 'type': 'number', 'value': 1, 'step': 1, 'min': 1, 'max': 4},
-        'trigger': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 8},
+        'trigger': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 6},
     }
 }
 AGENT_TRAIN_LIST = list(AGENT_PARAMS['train'])[2:]
@@ -131,6 +131,7 @@ def job_description(job: dict):
 
 def get_from_url(url: str, mode='to_send'):
     name = url.split('/')[-1].split('?')[0]
+    name = os.path.join(TMP_DIR, name)
     r = requests.get(url, stream=True)
     if r.ok:
         with open(name, 'wb') as f:
@@ -162,11 +163,12 @@ def download_json(user: dict, kind: str, idx: str):
     item = get_array_item(user, kind, idx)
     if item is None:
         return NUP
-    filename = f"{idx.replace(':', '_')}.json"
-    with open(filename, 'w') as f:
+    name = f"{idx.replace(':', '_')}.json"
+    name = os.path.join(TMP_DIR, name)
+    with open(name, 'w') as f:
         json.dump(item, f)
-    to_send = dcc.send_file(filename)
-    os.remove(filename)
+    to_send = dcc.send_file(name)
+    os.remove(name)
     return to_send
 
 
@@ -217,7 +219,7 @@ y_position = {i: f'{i * cell_size + 3}rem' for i in range(4)}
 
 
 def display_game(game):
-    header = f'Score = {game["score"]}, moves = {game["moves"]}'
+    header = f'Score = {game["score"]}, moves = {game["n_moves"]}'
     move = game['next_move']
     match move:
         case None:
@@ -231,8 +233,7 @@ def display_game(game):
                      className='app-game-cell blink-me' if [j, i] == game['last_tile'] else 'app-game-cell',
                      style={'left': x_position[i], 'top': y_position[j],
                             'background': f'var(--app-color-{game["row"][j][i]})'})
-            for j in range(4) for i in range(4)], style={'width': '28rem'})
+            for j in range(4) for i in range(4)], style={'width': '28rem', 'margin-top': '1rem'})
 
 
-EMPTY_GAME = GAME.empty_game()
 EMPTY_BOARD = display_game(EMPTY_GAME)

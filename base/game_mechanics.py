@@ -6,9 +6,9 @@ class GameLogic:
     pattern = {
         'idx': 'game name',
         'initial': '4 x 4 python list of lists',
-        'row': '4 x 4 python list of lists',
+        'row': 'current board, 4 x 4 python list of lists',
         'score': 'current score',
-        'moves': 'number of moves made so far',
+        'n_moves': 'number of moves made so far',
         'last_tile': 'position of last random tile',
         'next_move': 'None (if self-play mode), 0,1,2,3 if Agent/Game moving there, or -1 if game is over'
     }
@@ -27,7 +27,7 @@ class GameLogic:
             'initial': [[0] * 4 for _ in range(4)],
             'row': [[0] * 4 for _ in range(4)],
             'score': 0,
-            'moves': 0,
+            'n_moves': 0,
             'last_tile': [-1, -1],
             'next_move': None
         }
@@ -58,6 +58,7 @@ class GameLogic:
         self.new_tile(game)
         self.new_tile(game)
         game['initial'] = deepcopy(game['row'])
+        game['last_tile'] = [-1, -1]
         return game
 
     @staticmethod
@@ -101,7 +102,7 @@ class GameLogic:
             if change_line:
                 change = True
                 new_game['score'] += score
-        new_game['moves'] = game['moves'] + (1 if change else 0)
+        new_game['n_moves'] = game['n_moves'] + (1 if change else 0)
         return new_game, change
 
     @staticmethod
@@ -129,3 +130,4 @@ class GameLogic:
 
 
 GAME = GameLogic()
+EMPTY_GAME = GAME.empty_game()

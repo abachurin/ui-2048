@@ -9,6 +9,13 @@ import requests
 import pickle
 from enum import Enum
 from copy import deepcopy
+import shutil
+from pathlib import Path
+
+TMP_DIR = os.path.join(os.getcwd(), 'tmp', '')
+if os.path.exists(TMP_DIR):
+    shutil.rmtree(TMP_DIR)
+Path(TMP_DIR).mkdir(parents=True, exist_ok=True)
 
 LOCAL = os.environ.get('S3_URL', 'local') == 'local'
 BACK_URL = 'http://localhost:5000' if LOCAL else 'http://api:5000'
