@@ -40,7 +40,7 @@ app.layout = dbc.Container([
                       message='Are you sure? All Agents assigned to this user will be deleted'),
     dbc.NavbarSimple(
         children=[
-            dbc.Button('Contacts', id='contacts_open', className='app-btn', color='info', disabled=True),
+            dbc.Button('Contacts', id='contacts_open', className='app-btn', color='info'),
             dbc.Button('Manage Users', id='users_open', className='app-btn app-r1', color='primary', disabled=True),
             dbc.Button('My Objects', id='files_open', className='app-btn app-r1', color='primary', disabled=True),
             dbc.Button('Delete Me', id='del_user_open', className='app-btn app-r1', disabled=True, color='primary'),
@@ -115,6 +115,23 @@ app.layout = dbc.Container([
             close_button=False, id='guide_header'),
         dbc.ModalBody(id='guide_body'),
     ], id='guide', size='xl', contentClassName='app-guide-body', className='app-border', scrollable=True),
+    dbc.Modal([
+        dbc.ModalHeader([
+            'Contact the Author via:',
+            dbc.Button('Quit', id='contacts_close', className='app-btn', color='warning')
+        ], close_button=False, id='contacts_header'),
+        dbc.ModalBody([
+            html.Div(dcc.Link(dbc.Button('abachurin74@gmail.com', className='app-btn app-btn-link'),
+                              href='mailto: abachurin74@gmail.com', target='_blank'),
+                     className='app-contact-link'),
+            html.Div(dcc.Link(dbc.Button('Whatsapp', className='app-btn app-btn-link'),
+                              href='https://api.whatsapp.com/send?phone=351961072567', target='_blank'),
+                     className='app-contact-link'),
+            html.Div(dcc.Link(dbc.Button('Telegram', className='app-btn app-btn-link'),
+                              href='https://t.me/abachurin1974', target='_blank'),
+                     className='app-contact-link'),
+        ]),
+    ], id='contacts', size='md', contentClassName='app-guide-body', className='app-border'),
     html.Div([
         dbc.ModalBody(id='chart_body', className='app-chart-body'),
         dbc.ModalFooter([

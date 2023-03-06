@@ -217,7 +217,7 @@ body {
     background: var(--app-light-blue);
 }
 
-/* Guide */
+/* Guide*/
 
 #guide {
     background: var(--bs-gray-100);
@@ -236,6 +236,30 @@ body {
 
 .app-guide_content {
     white-space: pre-wrap;
+}
+
+/* Contacts */
+
+#contacts {
+    background: var(--bs-gray-100);
+    z-index: 100;
+    top: 15rem;
+}
+
+.app-contacts-header {
+    display: inline-block;;
+    align-items: center;
+}
+
+.app-contact-link {
+    margin: 1rem;
+    align-items: center;
+}
+
+.app-btn-link {
+    background: var(--app-light-blue);
+    color: var(--bs-black);
+    width: 100%;
 }
 
 /* Game pane */

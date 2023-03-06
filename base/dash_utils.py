@@ -31,7 +31,7 @@ buttons_to_confirm = {
     'del_user_open': 'confirm_delete',
     'users_delete': 'confirm_user_delete'
 }
-modal_open_close = ['guide']
+modal_open_close = ['guide', 'contacts']
 
 mode_names = {
     'guide': 'HELP!',
