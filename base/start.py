@@ -17,7 +17,7 @@ if os.path.exists(TMP_DIR):
     shutil.rmtree(TMP_DIR)
 Path(TMP_DIR).mkdir(parents=True, exist_ok=True)
 
-LOCAL = os.environ.get('S3_URL', 'local') == 'local'
+LOCAL = os.environ.get('AT_HOME', 'local') == 'local'
 BACK_URL = 'http://localhost:5000' if LOCAL else 'http://api:5000'
 
 
