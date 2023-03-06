@@ -1,16 +1,16 @@
 #### Update March 2023
 * I came back to this old Project to rewrite and restructure it taking into account skills and experience acquired over the last year.
 * It is now a proper scalable application with several independent components. The text below I leave mostly unchanged since 2020 for nostalgic reasons.
-
+   
 #### Update May 2022
-* Two years after completion, I refactored the existing code and made some cosmetic improvements. Also, There is now a web interface for this project, which runs currently at https://robot2048.com
-
+* Two years after completion, I refactored the existing code and made some cosmetic improvements.
+* Also, There is a web interface for this project now, which runs currently at https://robot2048.com
+   
 #### A Very Simple and Fast Reinforcement Learning Agent for the 2048 Game
 * Q-learning (kind of) with linear operator applied to some simple designed one-hot features as a value function, and the usual game score as a reward.
 After three days of training on 1 CPU core of an old Mac-book pro the Agent reaches 2048 in 84% of games, 4096 in 47%, 8192 - sometimes. Average score is around 45,000.
-
 * First time the 2048 tile appears after just 1-2 minutes of training. Robot plays a game to 2048 in about 1 second. This is my first project in Machine Learning, which took about three months to complete, still feels like magic to me! :)
-
+   
 ##### The Goal
 In the course of doing this project I've quickly found out that other people already had achieved much better scores results in the past, when the game was popular. See this discussion: https://stackoverflow.com/questions/22342854/what-is-the-optimal-algorithm-for-the-game-2048
 
@@ -27,16 +27,15 @@ No way I could train anything and get meaningful statistics otherwise.
 * Finally, learn how to post this project on Github in a user-friendly way.
 
 ###### When I've already finished this project ..
-I discovered that the solution method I've stumbled upon after a lot of wandering is called "N-tuples" and was employed before to this particular game, sure enough. See this excellent article: https://arxiv.org/pdf/1604.05085.pdf
-
-It's always nice to rediscover clever tricks yourself! I'm leaving my somewhat idiosyncratic terminology and the Conclusion as it was written, although i know now that it is incorrect: it does make a lot of sense to try longer tuples.
+* I discovered that the solution method I've stumbled upon after a lot of wandering is called "N-tuples" and was employed before to this particular game, sure enough. See this excellent article: https://arxiv.org/pdf/1604.05085.pdf
+* It's always nice to rediscover clever tricks yourself! I'm leaving my somewhat idiosyncratic terminology and the Conclusion as it was written, although i know now that it is incorrect: it does make a lot of sense to try longer tuples.
 
 ##### 2048 Game
-2048 is a single-player sliding block puzzle game designed by Italian web developer Gabriele Cirulli. The game's objective is to slide numbered tiles on a grid to combine them to create a tile with the number 2048. Of course, one can keep playing and achieve bigger tiles, with theoretical but probably unachiavable limit
+* 2048 is a single-player sliding block puzzle game designed by Italian web developer Gabriele Cirulli. The game's objective is to slide numbered tiles on a grid to combine them to create a tile with the number 2048. Of course, one can keep playing and achieve bigger tiles, with theoretical but probably unachiavable limit
 of 131072 (2 to the power of 17). When I used to play the game as a time-killer some years ago, the best I've sometimes achieved was 8192 tile and my best score around 150,000.
+* For those who never played it but are nevertheless interested, here is a brief description:
 
-For those who never played it but are nevertheless interested, here is a brief description:
-2048 is played on a 4×4 grid, with tiles numbered by powers of 2: 2, 4, 8 etc. The board starts with two random 2 or 4 tiles. At each step the Player can try to shake the board in one of the four directions: left, up, right or down. Tiles slide as far as possible in the chosen direction until they are stopped by either another tile or the edge of the grid. If two tiles with the same number collide while moving, they merge into a tile with twice the value. This new number is added to the score. The resulting tile cannot merge with another tile again in the same move. If nothing on the board changed as a result of the Player's action, i.e. the move did not happen, the Player has to choose another move. If there are no valid moves - the game is over. Now, every turn after the Player's move, a new tile randomly appears in an empty spot on the board with a value of either 2 or 4, with 0.9 and 0.1 probabilities respectively.
+    2048 is played on a 4×4 grid, with tiles numbered by powers of 2: 2, 4, 8 etc. The board starts with two random 2 or 4 tiles. At each step the Player can try to shake the board in one of the four directions: left, up, right or down. Tiles slide as far as possible in the chosen direction until they are stopped by either another tile or the edge of the grid. If two tiles with the same number collide while moving, they merge into a tile with twice the value. This new number is added to the score. The resulting tile cannot merge with another tile again in the same move. If nothing on the board changed as a result of the Player's action, i.e. the move did not happen, the Player has to choose another move. If there are no valid moves - the game is over. Now, every turn after the Player's move, a new tile randomly appears in an empty spot on the board with a value of either 2 or 4, with 0.9 and 0.1 probabilities respectively.
 
 You can play the game by choosing *Play Yourself* option to get an idea.
 
@@ -67,11 +66,11 @@ After that I experimented with triples and quartets for a week, as well as with 
 Now, if we load the best Agent and ask it to evaluate different board positions, we see a strange thing. It doesn't look smart at all. E.g. it would give much the same score to a dead position, where any remaining tile will leave no moves, as to a nice one. Neither there is any obvious preference for monotonic rows/columns. So it is quite strange to witness the Agent playing in a smart way.
 
 ##### Conclusion
-The Agent with N = 4 often achieves 4096. The rate of 2048 tile games is stuck around 84-85% since about 30k episodes.
+* The Agent with N = 4 often achieves 4096. The rate of 2048 tile games is stuck around 84-85% since about 30k episodes.
 The Agent still occasionally gets stuck at some ridiculously low number, like 256 or 128. I don't know how to deal with it. May be try something akin to boosting, backpropagating some heavy penalty for each state in the low-scoring episode.
 Another thing to do is try 5 or 6-tile features. But the number of parameters goes up exponentially. Besides, not sure it is worth it. 4-tile features already capture an important heuristics - we prefer a row like 1024 256 8 2 to a row like 2 1024 8 256, and the Agent weights most probably reflect that. Same with (2, 2)-squares. You can see how it tries to keep good order if you run *Watch Agent Play* option.
 Not sure bigger pieces will reveal much more (but I will think about implementing).
-* p.s. from May 2022: I did implement this and with N = 6 the Agent is way more powerful. Reaches 16384 tile sometimes. Achieves 2048 in 95% and 4096 in 85% of cases.
+* p.s. from May 2022: I did implement this and with N = 6 the Agent is way more powerful, reaches 16384 tile sometimes. See the chart on the bottom.
 
 ##### Charts and results
 

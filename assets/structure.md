@@ -1,10 +1,13 @@
 * ###### General
   * There are 5 components, all independent of each other, can be restarted/scaled/changed without any loss of overall functionality.
   * At the moment it is all Python. The current plan is to rewrite *Frontend* in React JS, and *Worker* in Julia.
+   
 * ###### Frontend
   Dash Python. Only talks to Backend via http requests.
+   
 * ###### Backend
-  FastAPI for main functionality. MongoDB for User information and exchange of other data. S3 Storage for Agent weights. Those are small for N <= 4, but rise to relatively almost 400 Mb for N=6.
+  FastAPI for main functionality. MongoDB for User information and exchange of other data. S3 Storage for Agent weights. Those are small for N <= 4, but rise to almost 400 Mb for N=6.
+   
 * ###### Queues and Workers
   * Initially a Redis Queue was employed, but it proved to be unsuited/unnecessary for the task.
   * Backend tasks are either very fast, responded straight away.
