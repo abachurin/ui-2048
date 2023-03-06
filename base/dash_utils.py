@@ -6,8 +6,8 @@ import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 from dash_extensions.enrich import DashProxy, MultiplexerTransform, Output, Input, State
 from dash_extensions import EventListener
-from dash.long_callback import DiskcacheLongCallbackManager
-import diskcache
+# from dash.long_callback import DiskcacheLongCallbackManager
+# import diskcache
 
 from .game_mechanics import *
 
@@ -207,7 +207,7 @@ def description_user(description: dict):
         res += f'{kind}:\n'
         for v in description[kind]:
             res += f'   {v}\n'
-    return res * 10
+    return res
 
 
 def general_alert(text: str, good=False):

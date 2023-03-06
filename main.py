@@ -11,9 +11,9 @@ for i in (1, 2, 3, 4):
     with open(os.path.join(dash_directory, 'assets', f'project_{i}.md'), 'r') as f:
         guide_history[i] = f.read()
 
-CACHE = diskcache.Cache('./cache')
-BCM = DiskcacheLongCallbackManager(CACHE)
-app = DashProxy(__name__, suppress_callback_exceptions=True, background_callback_manager=BCM,
+# CACHE = diskcache.Cache('./cache')
+# BCM = DiskcacheLongCallbackManager(CACHE)
+app = DashProxy(__name__, suppress_callback_exceptions=True,    # background_callback_manager=BCM,
                 transforms=[MultiplexerTransform()], title='RL Agent 2048', update_title=None,
                 meta_tags=[{'name': 'viewport', 'content': 'width=device-width, initial-scale=1'}])
 
@@ -706,11 +706,7 @@ def get_replay_options(hidden):
     [State('current_game_mode', 'data'), State('finish_game', 'value'),
      State('tmp_user', 'data'), State('current_game', 'data')]
     + [State(f'watch_p_{p}', 'value') for p in AGENT_PARAMS['watch']],
-    background=True,
-    running=[
-        (State('game_go', 'disabled'), True, False),
-        (State('game_close', 'disabled'), True, False)
-    ]
+    background=False
 )
 def go_agent(*args):
     mode = args[1]
