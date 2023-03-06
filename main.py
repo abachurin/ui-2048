@@ -188,6 +188,8 @@ app.layout = dbc.Container([
                                            inline=True, id='finish_game', className='app-train-radio'),
                             html.Div([
                                 params_line('watch', p) for p in AGENT_PARAMS['watch']], className='app-watch-box'),
+                            html.Div('* Loading weights for Agents with N > 4 can take several seconds',
+                                     className='app-comment')
                         ], id='watch_params', hidden=True),
                         html.Div([
                             html.Br(),

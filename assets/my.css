@@ -280,7 +280,7 @@ body {
     position: absolute;
     top: 8rem;
     left: calc(50% - 13rem);
-    height: 22rem;
+    height: 25rem;
     width: 26rem;
     background: var(--bs-white);
     white-space: pre-wrap;
