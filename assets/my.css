@@ -197,17 +197,7 @@ body {
 }
 
 /* Management windows */
-#users {
-	position: absolute;
-	width: 28rem;
-    height: 20rem;
-	left: calc(50% - 14rem);
-	top: 15rem;
-    background: var(--bs-gray-100);
-    z-index: 100;
-}
-
-#files {
+#users, #files {
 	position: absolute;
 	width: 28rem;
     height: 40rem;
@@ -232,6 +222,12 @@ body {
 #guide {
     background: var(--bs-gray-100);
     z-index: 100;
+}
+
+.app-btn-group {
+    border: 0;
+    border-radius: 0;
+	box-shadow: none;
 }
 
 .app-guide-body {

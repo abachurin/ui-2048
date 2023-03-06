@@ -1,13 +1,14 @@
-* ###### General comments
-    * The UI is made with Dash Python and utilises Bootstrap components, so it dynamically survives different screen sizes relatively well. E.g. it even works on my Iphone 13 Pro all right.
-    * The board has two panes, left and right (which become top/bottom on small screen). On the left side we can *Train Agent* or *Collect Agent Statistics*. On the right side you can simultaneously *Watch Agent Play*, *Replay Game* or *Play Yourself*. Any new process immediately terminates the previous one in its part of the screen but doesn't affect the other.
-* ###### Train Agent
-    We can train new Agent, or keep training existing one. The most important parameter is N, it determines which feature function is employed. With higher N - more weights and better results.
-* ###### Collect Agent Statistics
-    Collect statistics for an existing Agent. The Agent is choosing next move by trying to make a move in all directions and taking the one with the highest internal evaluation. We can try to improve performance by looking `depth` moves ahead and trying `width` random tiles at each after-move stage. And start doing this when number of empty cells goes below `empty`. Needless to say, this slows down the agent significantly.
-* ###### Watch Agent Play
-    All the same parameters as above, but now we can watch the Agent play one game in real time. Actually, it plays very fast, ~3-4 seconds for a full game reaching 4096. But Dash and your Browser can't render it so fast, besides it won't be fun. So maximum speed is limited.
-* ###### Replay Game
-    Replays a chosen Game from Storage. Any Agent saves a currently best game during training, also the best game of the latest Statistics Collection is saved.
-* ###### Play Yourself
-    Of course, it is more convenient to use a st
+* ###### General
+  * There are 5 components, all independent of each other, can be restarted/scaled/changed without any loss of overall functionality.
+  * At the moment it is all Python. The current plan is to rewrite *Frontend* in React JS, and *Worker* in Julia.
+* ###### Frontend
+  Dash Python. Only talks to Backend via http requests.
+* ###### Backend
+  FastAPI for main functionality. MongoDB for User information and exchange of other data. S3 Storage for Agent weights. Those are small for N <= 4, but rise to relatively almost 400 Mb for N=6.
+* ###### Queues and Workers
+  * Initially a Redis Queue was employed, but it proved to be unsuited/unnecessary for the task.
+  * Backend tasks are either very fast, responded straight away.
+  * Or they are background calculations, which can last from several seconds to several days (*Train Agent* for 100,000 episodes, for example). Those are managed by a Python Worker Manager process. A separate worker is launched for a particular User with non-empty Job Queue, it takes Jobs from the user-specific Queue in MongoDB and executes one by one.
+  * A user-dedicated worker is terminated by a parent process when there are no more Jobs. Any Job can also be killed by the User or Admin.
+  * It can also be graciously stopped by the User.in this case the Job will continue until some reasonable nearest breakpoint, save the results and exit.
+  

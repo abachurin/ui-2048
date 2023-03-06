@@ -1,5 +1,4 @@
 * Model with some combinations of 4 adjacent tiles + several 5-tiles, trained over 100,000 episodes.
-/ I wrote in the comments in `rl_learning.py` how i tried all 4-combinations at the start but it didn't work. /
 ```
 average over last 1000 episodes = 54718.676
 1024 reached in 96.3 %

@@ -64,7 +64,7 @@ AGENT_PARAMS = {
         'decay': {'element': 'input', 'type': 'number', 'value': 0.75, 'step': 0.01},
         'step': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000},
         'min_alpha': {'element': 'input', 'type': 'number', 'value': 0.01, 'step': 0.0001},
-        'episodes': {'element': 'input', 'type': 'number', 'value': 10000, 'step': 1000, 'max': 100000},
+        'episodes': {'element': 'input', 'type': 'number', 'value': 10000, 'min': 1000, 'max': 100000},
     },
     'test': {
         'agent': {'element': 'select', 'value': None, 'options': []},
@@ -75,7 +75,7 @@ AGENT_PARAMS = {
     },
     'watch': {
         'agent': {'element': 'select', 'value': None, 'options': []},
-        'depth': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 2},
+        'depth': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 3},
         'width': {'element': 'input', 'type': 'number', 'value': 1, 'step': 1, 'min': 1, 'max': 4},
         'trigger': {'element': 'input', 'type': 'number', 'value': 0, 'step': 1, 'min': 0, 'max': 6},
     }
@@ -172,7 +172,7 @@ def download_json(user: dict, kind: str, idx: str):
     return to_send
 
 
-def description_for_file_manager(user: dict, kind: str, idx: str):
+def description_files(user: dict, kind: str, idx: str):
     item = get_array_item(user, kind, idx)
     if item is None:
         return None
@@ -199,6 +199,15 @@ def description_for_file_manager(user: dict, kind: str, idx: str):
                    f"Launched at = {item['launch_time']}\n" \
                    f"Agent = {item['agent']}\n" \
                    f"Mode = {item['mode'].upper()}"
+
+
+def description_user(description: dict):
+    res = f"Registered at = {description['time']}\n"
+    for kind in ('Agents', 'Games', 'Jobs'):
+        res += f'{kind}:\n'
+        for v in description[kind]:
+            res += f'   {v}\n'
+    return res * 10
 
 
 def general_alert(text: str, good=False):

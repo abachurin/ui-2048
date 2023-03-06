@@ -91,10 +91,11 @@ app.layout = dbc.Container([
     html.Div([
         dbc.ModalHeader('manage users', close_button=False, id='users_header', className='app-modal-header'),
         dbc.ModalBody(children=[
-            html.Br(), html.Div('User :'),
+            html.Div('User :'),
             dcc.Dropdown(id='users_name', clearable=False),
-            html.Br(), html.Div('Change Status'),
-            dcc.Dropdown(id='users_change', clearable=False)
+            html.Div('New Status'),
+            dcc.Dropdown(id='users_change', clearable=False),
+            html.Div(id='user_description', className='app-files-description')
         ], className='app-modal-body'),
         dbc.ModalFooter([
             dbc.Button('Delete', id='users_delete', className='app-btn app-btn-submit', color='success'),
@@ -105,9 +106,9 @@ app.layout = dbc.Container([
     dbc.Modal([
         dbc.ModalHeader([
                 dbc.ButtonGroup([
-                    dbc.Button('Interface', id='guide_ui', className='app-btn', color='info'),
-                    dbc.Button('History', id='guide_pd', className='app-btn', color='primary'),
-                    dbc.Button('Structure', id='guide_ps', className='app-btn', color='secondary'),
+                    dbc.Button('Interface', id='guide_ui', className='app-btn app-btn-group', color='info'),
+                    dbc.Button('History', id='guide_pd', className='app-btn app-btn-group', color='primary'),
+                    dbc.Button('Structure', id='guide_ps', className='app-btn app-btn-group', color='secondary'),
                 ]),
                 dbc.Button('Quit', id='guide_close', className='app-btn', color='warning')
             ],
@@ -422,20 +423,21 @@ def username_options(hidden):
 
 
 @app.callback(
-    Output('users_change', 'options'), Output('users_change', 'value'), Output('alert', 'children'),
+    Output('users_change', 'options'), Output('users_change', 'value'), Output('user_description', 'children'),
+    Output('alert', 'children'),
     Input('users_name', 'value')
 )
 def user_status(name):
     if name:
         body = {
-            'job': 'status_list',
+            'job': 'user_description',
             'name': name,
         }
         resp, content = api_request('POST', 'admin', body)
         if resp == Resp.GOOD:
-            return opt_list(content['list']), content['status'], NUP
-        return [], None, general_alert(content)
-    return [], None, NUP
+            return opt_list(content['list']), content['status'], description_user(content['description']), NUP
+        return [], None, None, general_alert(content)
+    return [], None, None, NUP
 
 
 @app.callback(
@@ -509,7 +511,7 @@ def files_options(kind, user):
 )
 def files_show_description(idx, kind, user):
     if idx and user:
-        return description_for_file_manager(user, kind, idx)
+        return description_files(user, kind, idx)
 
 
 @app.callback(
@@ -552,7 +554,7 @@ def manage_files(n1, n2, n3, kind, idx, user, interval):
 def guide_body(*args):
     ctx = callback_context
     if not ctx.triggered:
-        raise PreventUpdate
+        return dcc.Markdown(guide_interface, dedent=False, link_target='_blanc', className='app-guide_content')
     show = ctx.triggered[0]['prop_id'].split('.')[0].split('_')[1]
     match show:
         case 'ui':
@@ -719,7 +721,7 @@ def go_agent(*args):
             'new_game': 1,
             'row': game['row'],
             'score': game['score'],
-            'odo': game['n_moves'],
+            'n_moves': game['n_moves'],
             'moves': [],
             'tiles': [],
             'current': states['tmp_user'],
@@ -775,7 +777,7 @@ def get_moves(n, idx, moves_tiles):
         if resp == resp.GOOD:
             moves_tiles['moves'] += content['moves']
             moves_tiles['tiles'] += content['tiles']
-            return moves_tiles, NUP, NUP, NUP
+            return moves_tiles, content['moves'] and content['moves'][-1] == -1, NUP, NUP
     raise PreventUpdate
 
 
