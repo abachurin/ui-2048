@@ -14,6 +14,9 @@
   * Or they are background calculations, which can last from several seconds to several days (*Train Agent* for 100,000 episodes, for example). Those are managed by a Python Worker Manager process. A separate worker is launched for a particular User with non-empty Job Queue, it takes Jobs from the user-specific Queue in MongoDB and executes one by one.
   * A user-dedicated worker is terminated by a parent process when there are no more Jobs. Any Job can also be killed by the User or Admin.
   * It can also be graciously stopped by the User.in this case the Job will continue until some reasonable nearest breakpoint, save the results and exit.
+
+* ###### Deployment
+  * App is currently deployed on DigitalOcean App Platform.
    
 * ###### Resources
   * Frontend: https://github.com/abachurin/ui-2048
